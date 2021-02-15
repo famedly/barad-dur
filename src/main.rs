@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use log::info;
-use std::str::FromStr;
+use std::{process, str::FromStr};
 
 mod model;
 mod server;
@@ -45,6 +45,17 @@ async fn main() -> Result<()> {
         }
     }
 
+    let db_url =
+        match dotenv::var("DATABASE_URL").context("failed connecting to PostgreSQL server.") {
+            Ok(db_url) => db_url,
+            Err(err) => {
+                log::error!("{:?}", err);
+                process::exit(-1);
+            }
+        };
+
+    let pool = sql::connect_db(&db_url).await;
+
     let (tx, mut rx) = tokio::sync::mpsc::channel::<model::StatsReport>(64);
 
     let server = actix_rt::spawn(async move {
@@ -52,8 +63,15 @@ async fn main() -> Result<()> {
         server::run_server(tx).await.unwrap();
     });
 
+    {
+        let pool = pool.clone();
+        actix_rt::spawn(async move {
+            sql::insert_reports_loop(pool, &mut rx).await;
+        });
+    }
+
     actix_rt::spawn(async move {
-        sql::sql_loop(&mut rx).await;
+        sql::aggregate_loop(pool).await;
     });
 
     server.await?;
