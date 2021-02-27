@@ -6,7 +6,7 @@ use tokio::{sync::mpsc::Receiver, time::interval};
 
 use crate::model;
 
-pub(crate) async fn aggregate_loop(pool: sqlx::PgPool) {
+pub async fn aggregate_loop(pool: sqlx::PgPool) {
     let interval = &mut interval(Duration::days(1i64).to_std().unwrap());
     loop {
         interval.tick().await;
@@ -17,7 +17,7 @@ pub(crate) async fn aggregate_loop(pool: sqlx::PgPool) {
     }
 }
 
-pub(crate) async fn insert_reports_loop(pool: sqlx::PgPool, rx: &mut Receiver<model::StatsReport>) {
+pub async fn insert_reports_loop(pool: sqlx::PgPool, rx: &mut Receiver<model::StatsReport>) {
     loop {
         let report = match rx
             .recv()
@@ -41,7 +41,7 @@ pub(crate) async fn insert_reports_loop(pool: sqlx::PgPool, rx: &mut Receiver<mo
     }
 }
 
-pub(crate) async fn connect_db(db_url: &str) -> sqlx::PgPool {
+pub async fn connect_db(db_url: &str) -> sqlx::PgPool {
     match sqlx::PgPool::connect(&db_url)
         .await
         .context("failed connecting to PostgreSQL server.")

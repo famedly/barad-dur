@@ -5,7 +5,7 @@ use anyhow::{Context, Result};
 
 use crate::model;
 
-pub(crate) async fn run_server(tx: tokio::sync::mpsc::Sender<model::StatsReport>) -> Result<()> {
+pub async fn run_server(tx: tokio::sync::mpsc::Sender<model::StatsReport>) -> Result<()> {
     let server = match HttpServer::new(move || {
         let tx = tx.clone();
 
