@@ -1,7 +1,13 @@
-#[derive(Debug, serde::Deserialize, serde::Serialize, sqlx::FromRow, Clone)]
+use chrono::{serde::ts_seconds_option, DateTime, Utc};
+use serde::Deserialize;
+use sqlx::FromRow;
+
+#[derive(Debug, Deserialize, FromRow, Clone)]
 pub struct StatsReport {
-    pub local_timestamp: chrono::DateTime<chrono::Utc>,
-    pub remote_timestamp: Option<i64>,
+    #[serde(with = "ts_seconds_option", default)]
+    pub local_timestamp: Option<DateTime<Utc>>,
+    #[serde(with = "ts_seconds_option", rename(deserialize = "timestamp"), default)]
+    pub remote_timestamp: Option<DateTime<Utc>>,
     pub daily_active_e2ee_rooms: Option<i64>,
     pub daily_active_rooms: Option<i64>,
     pub daily_active_users: Option<i64>,

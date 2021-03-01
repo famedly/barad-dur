@@ -2,11 +2,15 @@ use std::process;
 
 use anyhow::{Context, Result};
 use chrono::Duration;
+use sqlx::PgPool;
 use tokio::{sync::mpsc::Receiver, time::interval};
 
-use crate::model;
+use crate::model::StatsReport;
+use crate::settings::DBSettings;
 
-pub async fn aggregate_loop(pool: sqlx::PgPool) {
+pub async fn aggregate_loop(settings: &DBSettings) {
+    let pool = get_db_pool(settings).await;
+
     let interval = &mut interval(Duration::days(1i64).to_std().unwrap());
     loop {
         interval.tick().await;
@@ -17,7 +21,9 @@ pub async fn aggregate_loop(pool: sqlx::PgPool) {
     }
 }
 
-pub async fn insert_reports_loop(pool: sqlx::PgPool, rx: &mut Receiver<model::StatsReport>) {
+pub async fn insert_reports_loop(settings: &DBSettings, mut rx: Receiver<StatsReport>) {
+    let pool = get_db_pool(settings).await;
+
     loop {
         let report = match rx
             .recv()
@@ -41,8 +47,8 @@ pub async fn insert_reports_loop(pool: sqlx::PgPool, rx: &mut Receiver<model::St
     }
 }
 
-pub async fn connect_db(db_url: &str) -> sqlx::PgPool {
-    match sqlx::PgPool::connect(&db_url)
+async fn connect_pg(url: &str) -> PgPool {
+    let pool = match sqlx::PgPool::connect(&url)
         .await
         .context("failed connecting to PostgreSQL server.")
     {
@@ -51,7 +57,29 @@ pub async fn connect_db(db_url: &str) -> sqlx::PgPool {
             log::error!("{:?}", err);
             process::exit(-1);
         }
+    };
+
+    if let Err(err) = sqlx::migrate!()
+        .run(&pool)
+        .await
+        .context("failed to run migrations")
+    {
+        log::error!("{:?}", err);
+        process::exit(-1);
     }
+
+    pool
+}
+
+async fn get_db_pool(DBSettings { url }: &DBSettings) -> PgPool {
+    use once_cell::sync::OnceCell;
+    static PG_POOL_CELL: OnceCell<PgPool> = OnceCell::new();
+
+    PG_POOL_CELL.get().map(PgPool::clone).unwrap_or({
+        let pool = connect_pg(&url).await;
+        PG_POOL_CELL.set(pool.clone());
+        pool
+    })
 }
 
 async fn aggregate_stats(pool: &sqlx::PgPool) -> Result<()> {
@@ -112,7 +140,7 @@ GROUP BY local_timestamp::DATE
     Ok(())
 }
 
-async fn save_report(pool: &sqlx::PgPool, report: &model::StatsReport) -> Result<()> {
+async fn save_report(pool: &sqlx::PgPool, report: &StatsReport) -> Result<()> {
     sqlx::query!(
         r#"
 INSERT INTO statsreport (
