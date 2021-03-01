@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS StatsReport
 (
     id BIGSERIAL PRIMARY KEY,
     local_timestamp timestamp with time zone,
-    remote_timestamp BIGINT,
+    remote_timestamp timestamp with time zone,
     daily_active_e2ee_rooms BIGINT,
     daily_active_rooms BIGINT,
     daily_active_users BIGINT,

@@ -4,8 +4,12 @@ use actix_web::{web, App, HttpResponse, HttpServer};
 use anyhow::{Context, Result};
 
 use crate::model;
+use crate::settings::ServerSettings;
 
-pub async fn run_server(tx: tokio::sync::mpsc::Sender<model::StatsReport>) -> Result<()> {
+pub async fn run_server(
+    settings: ServerSettings,
+    tx: tokio::sync::mpsc::Sender<model::StatsReport>,
+) -> Result<()> {
     let server = match HttpServer::new(move || {
         let tx = tx.clone();
 
@@ -18,7 +22,7 @@ pub async fn run_server(tx: tokio::sync::mpsc::Sender<model::StatsReport>) -> Re
                         let req = req.clone();
                         let mut stats = stats;
 
-                        stats.local_timestamp = chrono::Utc::now();
+                        stats.local_timestamp = Some(chrono::Utc::now());
 
                         stats.remote_addr = req.peer_addr().map(|addr| addr.to_string());
 
@@ -27,14 +31,14 @@ pub async fn run_server(tx: tokio::sync::mpsc::Sender<model::StatsReport>) -> Re
                             .get("X-Forwarded-For")
                             .map(|addr| addr.to_str().ok())
                             .flatten()
-                            .map(|s| String::from(s));
+                            .map(String::from);
 
                         stats.user_agent = req
                             .headers()
                             .get("User-Agent")
                             .map(|value| value.to_str().ok())
                             .flatten()
-                            .map(|s| String::from(s));
+                            .map(String::from);
 
                         if let Err(err) = tx
                             .send(stats.into_inner())
@@ -44,13 +48,13 @@ pub async fn run_server(tx: tokio::sync::mpsc::Sender<model::StatsReport>) -> Re
                             log::error!("{:?}", err);
                             process::exit(-1);
                         }
-                        HttpResponse::Ok().finish()
+                        HttpResponse::Ok().finish().await
                     }
                 },
             ),
         )
     })
-    .bind("[::]:8080")
+    .bind(settings.host)
     .context("failed to start server.")
     {
         Ok(server) => server,
