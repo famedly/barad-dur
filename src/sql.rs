@@ -77,7 +77,7 @@ async fn get_db_pool(DBSettings { url }: &DBSettings) -> PgPool {
 
     PG_POOL_CELL.get().map(PgPool::clone).unwrap_or({
         let pool = connect_pg(&url).await;
-        PG_POOL_CELL.set(pool.clone());
+        let _ = PG_POOL_CELL.set(pool.clone());
         pool
     })
 }
