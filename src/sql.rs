@@ -1,12 +1,28 @@
 use std::process;
 
 use anyhow::{Context, Result};
-use tokio::sync::mpsc::Receiver;
+use chrono::Duration;
+use sqlx::PgPool;
+use tokio::{sync::mpsc::Receiver, time::interval};
 
-use crate::model;
+use crate::model::StatsReport;
+use crate::settings::DBSettings;
 
-pub(crate) async fn sql_loop(rx: &mut Receiver<model::StatsReport>) {
-    let pool = postgresql_connect().await;
+pub async fn aggregate_loop(settings: &DBSettings) {
+    let pool = get_db_pool(settings).await;
+
+    let interval = &mut interval(Duration::days(1i64).to_std().unwrap());
+    loop {
+        interval.tick().await;
+        if let Err(err) = aggregate_stats(&pool).await {
+            log::error!("{:?}", err);
+            process::exit(-1);
+        }
+    }
+}
+
+pub async fn insert_reports_loop(settings: &DBSettings, mut rx: Receiver<StatsReport>) {
+    let pool = get_db_pool(settings).await;
 
     loop {
         let report = match rx
@@ -31,17 +47,8 @@ pub(crate) async fn sql_loop(rx: &mut Receiver<model::StatsReport>) {
     }
 }
 
-async fn postgresql_connect() -> sqlx::PgPool {
-    let db_url = match dotenv::var("DATABASE_URL").context("failed connecting to PostgreSQL server.")
-    {
-        Ok(db_url) => db_url,
-        Err(err) => {
-            log::error!("{:?}", err);
-            process::exit(-1);
-        }
-    };
-
-    match sqlx::PgPool::connect(&db_url)
+async fn connect_pg(url: &str) -> PgPool {
+    let pool = match sqlx::PgPool::connect(&url)
         .await
         .context("failed connecting to PostgreSQL server.")
     {
@@ -50,10 +57,90 @@ async fn postgresql_connect() -> sqlx::PgPool {
             log::error!("{:?}", err);
             process::exit(-1);
         }
+    };
+
+    if let Err(err) = sqlx::migrate!()
+        .run(&pool)
+        .await
+        .context("failed to run migrations")
+    {
+        log::error!("{:?}", err);
+        process::exit(-1);
     }
+
+    pool
 }
 
-async fn save_report(pool: &sqlx::PgPool, report: &model::StatsReport) -> Result<()> {
+async fn get_db_pool(DBSettings { url }: &DBSettings) -> PgPool {
+    use once_cell::sync::OnceCell;
+    static PG_POOL_CELL: OnceCell<PgPool> = OnceCell::new();
+
+    PG_POOL_CELL.get().map(PgPool::clone).unwrap_or({
+        let pool = connect_pg(&url).await;
+        PG_POOL_CELL.set(pool.clone());
+        pool
+    })
+}
+
+async fn aggregate_stats(pool: &sqlx::PgPool) -> Result<()> {
+    let _ = sqlx::query!(
+        r#"
+INSERT INTO aggregate_stats (
+    day,
+    daily_active_e2ee_rooms,
+    daily_active_rooms,
+    daily_active_users,
+    daily_e2ee_messages,
+    daily_messages,
+    daily_sent_e2ee_messages,
+    daily_sent_messages,
+    daily_user_type_bridged,
+    daily_user_type_guest,
+    daily_user_type_native,
+    monthly_active_users,
+    r30_users_all,
+    r30_users_android,
+    r30_users_ios,
+    r30_users_electron,
+    r30_users_web,
+    total_nonbridged_users,
+    total_room_count,
+    total_users,
+    daily_active_homeservers
+)
+SELECT
+    local_timestamp::DATE,
+    SUM(daily_active_e2ee_rooms),
+    SUM(daily_active_rooms),
+    SUM(daily_active_users),
+    SUM(daily_e2ee_messages),
+    SUM(daily_messages),
+    SUM(daily_sent_e2ee_messages),
+    SUM(daily_sent_messages),
+    SUM(daily_user_type_bridged),
+    SUM(daily_user_type_guest),
+    SUM(daily_user_type_native),
+    SUM(monthly_active_users),
+    SUM(r30_users_all),
+    SUM(r30_users_android),
+    SUM(r30_users_ios),
+    SUM(r30_users_electron),
+    SUM(r30_users_web),
+    SUM(total_nonbridged_users),
+    SUM(total_room_count),
+    SUM(total_users),
+    COUNT(homeserver)
+FROM statsreport WHERE local_timestamp::DATE >= (SELECT COALESCE(MAX(day), 'EPOCH'::DATE) FROM aggregate_stats)
+GROUP BY local_timestamp::DATE
+        "#
+    )
+    .execute(&*pool)
+    .await?;
+
+    Ok(())
+}
+
+async fn save_report(pool: &sqlx::PgPool, report: &StatsReport) -> Result<()> {
     sqlx::query!(
         r#"
 INSERT INTO statsreport (
@@ -128,8 +215,9 @@ INSERT INTO statsreport (
         report.remote_addr,
         report.x_forwarded_for,
         report.user_agent)
-        .fetch_one(&*pool)
-        .await?;
+        .execute(&*pool)
+        .await
+        .context("failed executing aggregation query.")?;
 
     Ok(())
 }
