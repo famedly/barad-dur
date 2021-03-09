@@ -19,12 +19,12 @@ pub struct Settings {
 }
 
 impl Settings {
-    pub fn load() -> Result<Self> {
+    pub fn load(config: &str) -> Result<Self> {
         let mut conf = Config::new();
 
         conf.set_default("server.host", "[::]:8080")?;
         conf.set_default("log.level", "warn")?;
-        conf.merge(File::with_name("config.yaml"))?;
+        conf.merge(File::with_name(config))?;
         conf.try_into().context("can't load config")
     }
 }
