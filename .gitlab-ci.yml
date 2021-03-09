@@ -1,0 +1,100 @@
+image: rustlang/rust:nightly-slim
+
+stages:
+  - test
+  - build
+  - docker
+
+variables:
+  DATABASE_URL: "postgres://baraddur:baraddur@postgres/baraddur"
+  POSTGRES_DB:  baraddur
+  POSTGRES_USER: baraddur
+  POSTGRES_PASSWORD: "baraddur"
+  POSTGRES_HOST_AUTH_METHOD: trust
+
+cargo-test:
+  cache:
+    paths:
+      - target/
+    key: "rust:nightly"
+  needs: []
+  services:
+    - postgres:12.4-alpine
+  
+  stage: test
+  before_script:
+    - apt-get update -yqq
+    - apt-get install -yqq --no-install-recommends build-essential libpq-dev cmake libssl-dev pkg-config git
+    - rustup toolchain add stable && rustup default stable
+    - rustup component add clippy
+    - rustup component add rustfmt
+    - cargo install sqlx-cli --version=0.5.1 --no-default-features --features postgres
+    - rustup run stable sqlx migrate run
+  script:
+    - rustc --version && cargo --version  # Print version info for debugging
+    - cargo fmt -- --check
+    - cargo check
+    - cargo clippy
+    - cargo test --all --verbose -- --test-threads=1
+
+build_baraddur:
+  cache:
+    paths:
+      - target/
+    key: "alpine:edge"
+  needs: []
+  services:
+    - postgres:12.4-alpine
+
+  stage: build
+  image: rustlang/rust:nightly-slim
+  before_script:
+    - apt-get update -yqq
+    - apt-get install -yqq --no-install-recommends build-essential libpq-dev cmake libssl-dev pkg-config git
+    - rustup toolchain add stable && rustup default stable
+    - cargo install --version=0.5.1 sqlx-cli --no-default-features --features postgres
+    - rustup run stable sqlx migrate run
+  script:
+    - cargo build --release
+
+  artifacts:
+    paths:
+      - target/release/barad-dur
+
+.docker: &docker_template
+  needs:
+    - build_baraddur
+    - cargo-test
+  image: docker:latest
+  stage: docker
+  services:
+    - docker:dind
+    - postgres:12.4-alpine
+
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+
+docker-releases:
+  <<: *docker_template
+  script:
+    - docker build --pull -t "${CI_REGISTRY_IMAGE}:latest" -t "${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG}" .
+    - docker push "${CI_REGISTRY_IMAGE}:latest"
+    - docker push "${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG}"
+  rules:
+    - if: '$CI_COMMIT_TAG && $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+
+docker-tags:
+  <<: *docker_template
+  script:
+    - docker build --pull -t "${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG}" .
+    - docker push "${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG}"
+  rules:
+    - if: '$CI_COMMIT_TAG && $CI_COMMIT_TAG !~ /^v\d+\.\d+\.\d+$/'
+
+docker-branches:
+  <<: *docker_template
+  script:
+    - docker build --pull -t "${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}" .
+    - docker push "${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}"
+  rules:
+    - if: $CI_COMMIT_BRANCH
