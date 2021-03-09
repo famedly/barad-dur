@@ -48,7 +48,7 @@ pub async fn run_server(
                             log::error!("{:?}", err);
                             process::exit(-1);
                         }
-                        HttpResponse::Ok()
+                        HttpResponse::Ok().await
                     }
                 },
             ),
@@ -98,13 +98,18 @@ mod tests {
 
         for (version, payload) in test_payloads {
             let req = test::TestRequest::put()
-            .uri("/report-usage-stats/push")
-            .insert_header(header::ContentType::json())
-            .set_payload(payload)
-            .to_request();
+                .uri("/report-usage-stats/push")
+                .insert_header(header::ContentType::json())
+                .set_payload(payload)
+                .to_request();
 
             let resp = test::call_service(&mut app, req).await;
-            assert_eq!(resp.status(), StatusCode::OK, "testing panopticon {} report-usage-stats request", version);
+            assert_eq!(
+                resp.status(),
+                StatusCode::OK,
+                "testing panopticon {} report-usage-stats request",
+                version
+            );
         }
     }
 }
