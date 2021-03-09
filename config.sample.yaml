@@ -1,5 +1,5 @@
 database:
-  url: postgres://baraddur:baraddur@localhost/baraddur
+  url: postgres://user:password@host/dbname
 
 server:
   host: localhost:8080
