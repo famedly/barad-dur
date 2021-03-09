@@ -8,6 +8,8 @@ mod model;
 mod server;
 mod settings;
 mod sql;
+#[cfg(test)]
+mod tests;
 
 fn setup_logging(level: &str) -> Result<()> {
     let level = log::LevelFilter::from_str(&level).unwrap();
