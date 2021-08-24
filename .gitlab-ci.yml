@@ -28,7 +28,7 @@ cargo-test:
     - rustup toolchain add stable && rustup default stable
     - rustup component add clippy
     - rustup component add rustfmt
-    - cargo install sqlx-cli --version=0.5.1 --no-default-features --features postgres
+    - cargo install sqlx-cli --version=0.5.7 --no-default-features --features postgres
     - rustup run stable sqlx migrate run
   script:
     - rustc --version && cargo --version  # Print version info for debugging
@@ -52,7 +52,7 @@ build_baraddur:
     - apt-get update -yqq
     - apt-get install -yqq --no-install-recommends build-essential libpq-dev cmake libssl-dev pkg-config git
     - rustup toolchain add stable && rustup default stable
-    - cargo install --version=0.5.1 sqlx-cli --no-default-features --features postgres
+    - cargo install --version=0.5.7 sqlx-cli --no-default-features --features postgres
     - rustup run stable sqlx migrate run
   script:
     - cargo build --release

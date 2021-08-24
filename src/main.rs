@@ -12,7 +12,7 @@ mod sql;
 mod tests;
 
 fn setup_logging(level: &str) -> Result<()> {
-    let level = log::LevelFilter::from_str(&level).unwrap();
+    let level = log::LevelFilter::from_str(level).unwrap();
 
     fern::Dispatch::new()
         .format(|out, message, record| {

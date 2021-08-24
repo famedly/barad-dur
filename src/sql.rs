@@ -48,7 +48,7 @@ pub async fn insert_reports_loop(settings: &DBSettings, mut rx: Receiver<StatsRe
 }
 
 async fn connect_pg(url: &str) -> PgPool {
-    let pool = match sqlx::PgPool::connect(&url)
+    let pool = match sqlx::PgPool::connect(url)
         .await
         .context("failed connecting to PostgreSQL server.")
     {
@@ -76,7 +76,7 @@ async fn get_db_pool(DBSettings { url }: &DBSettings) -> PgPool {
     static PG_POOL_CELL: OnceCell<PgPool> = OnceCell::new();
 
     PG_POOL_CELL.get().map(PgPool::clone).unwrap_or({
-        let pool = connect_pg(&url).await;
+        let pool = connect_pg(url).await;
         let _ = PG_POOL_CELL.set(pool.clone());
         pool
     })
@@ -167,7 +167,7 @@ async fn save_report(pool: &sqlx::PgPool, report: &StatsReport) -> Result<i64> {
     #[derive(sqlx::FromRow)]
     struct Id {
         id: i64,
-    };
+    }
 
     let id: Id = sqlx::query_as!(
         Id,
