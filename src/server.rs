@@ -53,7 +53,7 @@ async fn save_report(
 
     report.remote_addr = addr.map(|addr| addr.0.to_string());
 
-    report.x_forwarded_for = headers.as_ref().and_then(|headers| {
+    report.forwarded_for = headers.as_ref().and_then(|headers| {
         headers
             .get("X-Forwarded-For")
             .map(|addr| addr.to_str().ok())
