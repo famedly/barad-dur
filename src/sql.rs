@@ -256,6 +256,10 @@ pub mod tests {
     use crate::model::StatsReport;
     use anyhow::Result;
 
+    pub async fn aggregate_stats(pool: &sqlx::PgPool) -> Result<()> {
+        super::aggregate_stats(pool).await
+    }
+
     pub async fn save_report(pool: &sqlx::PgPool, report: &StatsReport) -> Result<i64> {
         super::save_report(pool, report).await
     }
