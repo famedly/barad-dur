@@ -6,17 +6,21 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-actix-rt = "2.3.0"
-actix-web = { version = "4.0.0-beta.10", features = [] }
 anyhow = "1.0.44"
+axum = "0.2.8"
 chrono = { version = "0.4.19", features = [ "serde" ] }
 clap = "2.33.3"
 config = "0.11.0"
 dotenv = "0.15.0"
 fern = "0.6.0"
+http = "0.2.5"
+hyper = "0.14.14"
 log = "0.4.14"
 once_cell = "1.8.0"
 serde = { version = "1.0.130", features = [ "derive" ] }
 serde_json = "1.0.68"
 sqlx = { version = "0.5.9", features = [ "runtime-tokio-rustls", "postgres", "macros", "migrate", "chrono", "json", "bigdecimal" ] }
 tokio = { version = "1.12.0", features = [ "time", "macros", "rt-multi-thread" ] }
+
+[dev-dependencies]
+tower = "0.4.10"

@@ -2,4 +2,4 @@ database:
   url: postgres://user:password@host/dbname
 
 server:
-  host: localhost:8080
+  host: 127.0.0.1:8080

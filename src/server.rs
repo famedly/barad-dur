@@ -1,8 +1,12 @@
+use std::net::SocketAddr;
 use std::process;
 
-use actix_web::{web, App, HttpResponse, HttpServer};
 use anyhow::{Context, Result};
+use axum::extract::{FromRequest, RequestParts};
+use axum::handler::put;
+use axum::{async_trait, extract, AddExtensionLayer, Router, Server};
 use chrono::SubsecRound;
+use http::{HeaderMap, StatusCode};
 use tokio::sync::mpsc;
 
 use crate::model;
@@ -11,75 +15,89 @@ pub async fn run_server(
     settings: ServerSettings,
     tx: mpsc::Sender<model::StatsReport>,
 ) -> Result<()> {
-    let server =
-        match HttpServer::new(move || App::new().route("/report-usage-stats/push", route(&tx)))
-            .bind(settings.host)
-            .context("failed to start server.")
-        {
-            Ok(server) => server,
-            Err(err) => {
-                log::error!("{:?}", err);
-                process::exit(-1);
-            }
-        };
-
-    if let Err(err) = server.run().await.context("server crashed") {
-        log::error!("{:?}", err);
-        process::exit(-1);
-    };
+    Server::bind(&settings.host.parse::<SocketAddr>()?)
+        .serve(
+            Router::new()
+                .route("/report-usage-stats/push", put(save_report))
+                .layer(AddExtensionLayer::new(tx))
+                .into_make_service_with_connect_info::<SocketAddr, _>(),
+        )
+        .await?;
 
     Ok(())
 }
 
-fn route(tx: &mpsc::Sender<model::StatsReport>) -> actix_web::Route {
-    let tx = tx.clone();
+pub struct ExtractHeaderMap(Option<HeaderMap>);
 
-    web::put().to(
-        move |req: web::HttpRequest, stats: web::Json<model::StatsReport>| {
-            let tx = tx.clone();
-            async move {
-                let req = req.clone();
-                let mut stats = stats;
+#[async_trait]
+impl<B> FromRequest<B> for ExtractHeaderMap
+where
+    B: Send,
+{
+    type Rejection = (StatusCode, &'static str);
 
-                stats.local_timestamp = Some(chrono::Utc::now().round_subsecs(6));
+    async fn from_request(req: &mut RequestParts<B>) -> Result<Self, Self::Rejection> {
+        Ok(Self(req.take_headers()))
+    }
+}
 
-                stats.remote_addr = req.peer_addr().map(|addr| addr.to_string());
+async fn save_report(
+    tx: extract::Extension<mpsc::Sender<model::StatsReport>>,
+    report: extract::Json<model::StatsReport>,
+    addr: Option<extract::ConnectInfo<SocketAddr>>,
+    ExtractHeaderMap(headers): ExtractHeaderMap,
+) -> StatusCode {
+    let mut report = report;
 
-                stats.x_forwarded_for = req
-                    .headers()
-                    .get("X-Forwarded-For")
-                    .map(|addr| addr.to_str().ok())
-                    .flatten()
-                    .map(String::from);
+    report.local_timestamp = Some(chrono::Utc::now().round_subsecs(6));
 
-                stats.user_agent = req
-                    .headers()
-                    .get("User-Agent")
-                    .map(|value| value.to_str().ok())
-                    .flatten()
-                    .map(String::from);
+    report.remote_addr = addr.map(|addr| addr.0.to_string());
 
-                if let Err(err) = tx
-                    .send(stats.into_inner())
-                    .await
-                    .context("can't send report to sql thread.")
-                {
-                    log::error!("{:?}", err);
-                    process::exit(-1);
-                }
-                HttpResponse::Ok().await
-            }
-        },
-    )
+    report.x_forwarded_for = headers.as_ref().and_then(|headers| {
+        headers
+            .get("X-Forwarded-For")
+            .map(|addr| addr.to_str().ok())
+            .flatten()
+            .map(String::from)
+    });
+
+    report.user_agent = headers.as_ref().and_then(|headers| {
+        headers
+            .get("User-Agent")
+            .map(|value| value.to_str().ok())
+            .flatten()
+            .map(String::from)
+    });
+
+    if let Err(err) = tx
+        .send(report.0)
+        .await
+        .context("can't send report to sql thread.")
+    {
+        log::error!("{:?}", err);
+        process::exit(-1);
+    }
+    StatusCode::OK
 }
 
 #[cfg(test)]
 pub mod tests {
+    use std::net::SocketAddr;
+
+    use axum::extract;
+    use http::StatusCode;
     use tokio::sync::mpsc;
 
-    use crate::model::StatsReport;
+    use crate::model;
 
-    pub fn route(tx: &mpsc::Sender<StatsReport>) -> actix_web::Route {
-        super::route(tx)
+    use super::ExtractHeaderMap;
+
+    pub async fn save_report(
+        tx: extract::Extension<mpsc::Sender<model::StatsReport>>,
+        report: extract::Json<model::StatsReport>,
+        addr: Option<extract::ConnectInfo<SocketAddr>>,
+        ExtractHeaderMap(headers): ExtractHeaderMap,
+    ) -> StatusCode {
+        super::save_report(tx, report, addr, ExtractHeaderMap(headers)).await
     }
 }

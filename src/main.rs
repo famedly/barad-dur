@@ -37,7 +37,7 @@ fn setup_logging(level: &str) -> Result<()> {
     Ok(())
 }
 
-#[actix_web::main]
+#[tokio::main]
 async fn main() -> Result<()> {
     let opts = App::new("barad-dur")
         .version("0.1")
@@ -66,7 +66,7 @@ async fn main() -> Result<()> {
 
     let server = {
         let settings = settings.server;
-        actix_rt::spawn(async move {
+        tokio::spawn(async move {
             let tx = tx.clone();
             server::run_server(settings, tx).await.unwrap();
         })
@@ -74,14 +74,14 @@ async fn main() -> Result<()> {
 
     {
         let settings = settings.database.clone();
-        actix_rt::spawn(async move {
+        tokio::spawn(async move {
             sql::aggregate_loop(&settings).await;
         });
     }
 
     {
         let settings = settings.database;
-        actix_rt::spawn(async move {
+        tokio::spawn(async move {
             sql::insert_reports_loop(&settings, rx).await;
         });
     }
