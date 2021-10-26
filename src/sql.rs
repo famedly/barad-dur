@@ -13,11 +13,11 @@ pub async fn aggregate_loop(settings: &DBSettings) {
 
     let interval = &mut interval(Duration::days(1i64).to_std().unwrap());
     loop {
-        interval.tick().await;
         if let Err(err) = aggregate_stats(&pool).await {
             log::error!("{:?}", err);
             process::exit(-1);
         }
+        interval.tick().await;
     }
 }
 
