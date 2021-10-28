@@ -4,10 +4,10 @@ use anyhow::{Context, Result};
 use clap::{App, Arg};
 use settings::Settings;
 
+mod database;
 mod model;
 mod server;
 mod settings;
-mod sql;
 #[cfg(test)]
 mod tests;
 
@@ -62,7 +62,7 @@ async fn main() -> Result<()> {
     let settings =
         Settings::load(opts.value_of("config").unwrap()).context("can't load config.")?;
 
-    let (tx, rx) = tokio::sync::mpsc::channel::<model::StatsReport>(64);
+    let (tx, rx) = tokio::sync::mpsc::channel::<model::Report>(64);
 
     let server = {
         let settings = settings.server;
@@ -75,14 +75,14 @@ async fn main() -> Result<()> {
     {
         let settings = settings.database.clone();
         tokio::spawn(async move {
-            sql::aggregate_loop(&settings).await;
+            database::aggregate_loop(&settings).await;
         });
     }
 
     {
         let settings = settings.database;
         tokio::spawn(async move {
-            sql::insert_reports_loop(&settings, rx).await;
+            database::insert_reports_loop(&settings, rx).await;
         });
     }
 

@@ -11,10 +11,7 @@ use tokio::sync::mpsc;
 
 use crate::model;
 use crate::settings::ServerSettings;
-pub async fn run_server(
-    settings: ServerSettings,
-    tx: mpsc::Sender<model::StatsReport>,
-) -> Result<()> {
+pub async fn run_server(settings: ServerSettings, tx: mpsc::Sender<model::Report>) -> Result<()> {
     Server::bind(&settings.host.parse::<SocketAddr>()?)
         .serve(
             Router::new()
@@ -42,8 +39,8 @@ where
 }
 
 async fn save_report(
-    tx: extract::Extension<mpsc::Sender<model::StatsReport>>,
-    report: extract::Json<model::StatsReport>,
+    tx: extract::Extension<mpsc::Sender<model::Report>>,
+    report: extract::Json<model::Report>,
     addr: Option<extract::ConnectInfo<SocketAddr>>,
     ExtractHeaderMap(headers): ExtractHeaderMap,
 ) -> StatusCode {
@@ -93,8 +90,8 @@ pub mod tests {
     use super::ExtractHeaderMap;
 
     pub async fn save_report(
-        tx: extract::Extension<mpsc::Sender<model::StatsReport>>,
-        report: extract::Json<model::StatsReport>,
+        tx: extract::Extension<mpsc::Sender<model::Report>>,
+        report: extract::Json<model::Report>,
         addr: Option<extract::ConnectInfo<SocketAddr>>,
         ExtractHeaderMap(headers): ExtractHeaderMap,
     ) -> StatusCode {

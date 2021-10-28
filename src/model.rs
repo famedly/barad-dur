@@ -3,7 +3,7 @@ use serde::Deserialize;
 use sqlx::FromRow;
 
 #[derive(Debug, Deserialize, PartialEq, FromRow, Clone)]
-pub struct StatsReport {
+pub struct Report {
     pub homeserver: Option<String>,
     #[serde(with = "ts_seconds_option", default)]
     pub local_timestamp: Option<DateTime<Utc>>,

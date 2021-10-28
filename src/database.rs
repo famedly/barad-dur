@@ -5,7 +5,7 @@ use chrono::Duration;
 use sqlx::PgPool;
 use tokio::{sync::mpsc::Receiver, time::interval};
 
-use crate::model::StatsReport;
+use crate::model::Report;
 use crate::settings::DBSettings;
 
 pub async fn aggregate_loop(settings: &DBSettings) {
@@ -21,7 +21,7 @@ pub async fn aggregate_loop(settings: &DBSettings) {
     }
 }
 
-pub async fn insert_reports_loop(settings: &DBSettings, mut rx: Receiver<StatsReport>) {
+pub async fn insert_reports_loop(settings: &DBSettings, mut rx: Receiver<Report>) {
     let pool = get_db_pool(settings).await;
 
     loop {
@@ -196,7 +196,7 @@ async fn aggregate_stats(pool: &sqlx::PgPool) -> Result<()> {
     Ok(())
 }
 
-async fn save_report(pool: &sqlx::PgPool, report: &StatsReport) -> Result<i64> {
+async fn save_report(pool: &sqlx::PgPool, report: &Report) -> Result<i64> {
     #[derive(sqlx::FromRow)]
     struct Id {
         id: i64,
@@ -341,20 +341,20 @@ async fn save_report(pool: &sqlx::PgPool, report: &StatsReport) -> Result<i64> {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::model::StatsReport;
+    use crate::model::Report;
     use anyhow::Result;
 
     pub async fn aggregate_stats(pool: &sqlx::PgPool) -> Result<()> {
         super::aggregate_stats(pool).await
     }
 
-    pub async fn save_report(pool: &sqlx::PgPool, report: &StatsReport) -> Result<i64> {
+    pub async fn save_report(pool: &sqlx::PgPool, report: &Report) -> Result<i64> {
         super::save_report(pool, report).await
     }
 
-    pub async fn get_report_by_id(pool: &sqlx::PgPool, id: i64) -> Result<StatsReport> {
+    pub async fn get_report_by_id(pool: &sqlx::PgPool, id: i64) -> Result<Report> {
         let report = sqlx::query_as!(
-            StatsReport,
+            Report,
             r#"
             SELECT
               homeserver,
