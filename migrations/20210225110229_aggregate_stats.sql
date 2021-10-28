@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS aggregate_stats
+CREATE TABLE IF NOT EXISTS aggregated_stats
 (
     day date PRIMARY KEY,
     total_users BIGINT,

@@ -1,5 +1,5 @@
 -- Add migration script here
-CREATE TABLE IF NOT EXISTS StatsReport
+CREATE TABLE IF NOT EXISTS reports
 (
     id BIGSERIAL PRIMARY KEY,
     homeserver TEXT,

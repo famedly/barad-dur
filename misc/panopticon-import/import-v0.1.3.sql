@@ -50,7 +50,7 @@ ALTER TABLE StatsReportStaging
     USING cache_factor::double precision;
 
 
-INSERT INTO StatsReport 
+INSERT INTO reports
 (
     homeserver,
     local_timestamp,
@@ -119,6 +119,6 @@ INSERT INTO StatsReport
     log_level
 FROM StatsReportStaging;
 
-DELETE FROM aggregate_stats;
+DELETE FROM aggregated_stats;
 
 DROP TABLE StatsReportStaging;
