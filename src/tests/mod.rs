@@ -1,6 +1,6 @@
+use crate::database;
 use crate::model;
 use crate::server;
-use crate::sql;
 
 use std::{collections::HashMap, env};
 
@@ -19,7 +19,7 @@ async fn integration_testing() {
     // crate::setup_logging("debug");
     let db_url = env::var("DATABASE_URL").unwrap();
     let pool = sqlx::PgPool::connect(&db_url).await.unwrap();
-    let (tx, mut rx) = mpsc::channel::<model::StatsReport>(64);
+    let (tx, mut rx) = mpsc::channel::<model::Report>(64);
 
     let app = || {
         Router::new()
@@ -58,11 +58,11 @@ async fn integration_testing() {
         );
 
         let report = rx.recv().await.unwrap();
-        let id = sql::tests::save_report(&pool, &report).await.unwrap();
+        let id = database::tests::save_report(&pool, &report).await.unwrap();
         assert_eq!(
             report,
-            sql::tests::get_report_by_id(&pool, id).await.unwrap()
+            database::tests::get_report_by_id(&pool, id).await.unwrap()
         );
     }
-    sql::tests::aggregate_stats(&pool).await.unwrap();
+    database::tests::aggregate_stats(&pool).await.unwrap();
 }
