@@ -6,10 +6,11 @@ RUN apk add --no-cache \
 	openssh-client-default \
 	git
 RUN rustup-init -y -q
+RUN source $HOME/.cargo/env && cargo install cargo-auditable
 
 COPY . /app
 WORKDIR /app
-RUN source $HOME/.cargo/env && cargo build --release
+RUN source $HOME/.cargo/env && cargo auditable build --release
 
 FROM docker.io/alpine:3.14
 RUN apk add --no-cache \
