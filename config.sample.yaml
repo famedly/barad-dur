@@ -1,0 +1,5 @@
+database:
+  url: postgres://user:password@host/dbname
+
+server:
+  host: 127.0.0.1:8080
