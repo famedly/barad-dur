@@ -1,9 +1,9 @@
 include:
-  - project: 'famedly/company/devops/templates/ci-cd'
+  - project: 'famedly/infra/templates/ci-cd'
     ref: rust-v1
     file:
       - '/rust.yml'
-  - project: 'famedly/company/devops/templates/ci-cd'
+  - project: 'famedly/infra/templates/ci-cd'
     ref: docker-v1
     file:
       - '/docker.yml'
@@ -25,7 +25,7 @@ cargo-check:
       alias: postgres
   script:
     - sqlx migrate run
-    - cargo sqlx prepare --check
+    - cargo sqlx prepare --check -- --all-targets --all-features
     - !reference [.cargo_check, script]
 
 docker-releases:
