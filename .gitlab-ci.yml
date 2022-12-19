@@ -21,11 +21,8 @@ cargo-check:
     POSTGRES_PASSWORD: "baraddur"
     POSTGRES_HOST_AUTH_METHOD: trust
   services:
-    - name: docker.io/postgres:14-alpine
+    - name: docker.io/postgres:15-alpine
       alias: postgres
-  before_script:
-    - !reference [.cargo_common, before_script]
-    - cargo install --root=/usr/local sqlx-cli --no-default-features --features postgres
   script:
     - sqlx migrate run
     - cargo sqlx prepare --check

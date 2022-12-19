@@ -1,8 +1,9 @@
 use std::str::FromStr;
 
 use anyhow::{Context, Result};
-use clap::{App, Arg};
+use clap::{Arg, Command};
 use settings::Settings;
+use time::macros::format_description;
 
 mod database;
 mod model;
@@ -18,7 +19,12 @@ fn setup_logging(level: &str) -> Result<()> {
         .format(|out, message, record| {
             out.finish(format_args!(
                 "[{}][{}][{}] {}",
-                chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+                time::OffsetDateTime::now_local()
+                    .unwrap()
+                    .format(format_description!(
+                        "[year]-[month]-[day] [hour]:[minute]:[second]"
+                    ))
+                    .unwrap(),
                 record.level(),
                 record.target(),
                 message
@@ -39,28 +45,26 @@ fn setup_logging(level: &str) -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let opts = App::new("barad-dur")
+    let opts = Command::new("barad-dur")
         .version("0.1")
         .args(&[
-            Arg::with_name("config")
+            Arg::new("config")
                 .help("path of config file")
-                .takes_value(true)
-                .short("c")
+                .short('c')
                 .long("config")
                 .default_value("./config.yaml"),
-            Arg::with_name("log_level")
+            Arg::new("log_level")
                 .help("log level")
-                .possible_values(&["Error", "Warn", "Info", "Debug", "Trace"])
-                .takes_value(true)
+                .value_parser(["Error", "Warn", "Info", "Debug", "Trace"])
                 .long("log")
                 .default_value("Warn"),
         ])
         .get_matches();
 
-    setup_logging(opts.value_of("log_level").unwrap())?;
+    setup_logging(opts.get_one::<String>("log_level").unwrap())?;
 
     let settings =
-        Settings::load(opts.value_of("config").unwrap()).context("can't load config.")?;
+        Settings::load(opts.get_one::<String>("config").unwrap()).context("can't load config.")?;
 
     let (tx, rx) = tokio::sync::mpsc::channel::<model::Report>(64);
 

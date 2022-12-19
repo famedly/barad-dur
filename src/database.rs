@@ -1,7 +1,6 @@
 use std::process;
 
 use anyhow::{Context, Result};
-use chrono::Duration;
 use sqlx::PgPool;
 use tokio::{sync::mpsc::Receiver, time::interval};
 
@@ -11,7 +10,7 @@ use crate::settings::DBSettings;
 pub async fn aggregate_loop(settings: &DBSettings) {
     let pool = get_db_pool(settings).await;
 
-    let interval = &mut interval(Duration::days(1i64).to_std().unwrap());
+    let interval = &mut interval(std::time::Duration::new(86400, 0));
     loop {
         if let Err(err) = aggregate_stats(&pool).await {
             log::error!("{:?}", err);
@@ -189,7 +188,7 @@ async fn aggregate_stats(pool: &sqlx::PgPool) -> Result<()> {
           daily_user_type_guest = excluded.daily_user_type_guest,
           daily_active_homeservers = excluded.daily_active_homeservers;"#
     )
-    .execute(&*pool)
+    .execute(pool)
     .await
     .context("could not aggregate stats")?;
 
@@ -332,7 +331,7 @@ async fn save_report(pool: &sqlx::PgPool, report: &Report) -> Result<i64> {
         report.server_context,
         report.log_level,
     )
-    .fetch_one(&*pool)
+    .fetch_one(pool)
     .await
     .context("failed executing aggregation query.")?;
 
@@ -403,7 +402,7 @@ pub mod tests {
               id = $1"#,
             id
         )
-        .fetch_one(&*pool)
+        .fetch_one(pool)
         .await?;
         Ok(report)
     }

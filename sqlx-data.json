@@ -1,24 +1,280 @@
 {
   "db": "PostgreSQL",
-  "86ddeccb08afd89e87de480a10b9351d4f29c2b182dd11cecd5e50a76920ce44": {
-    "query": "\n        INSERT INTO\n          aggregated_stats (\n            day,\n            total_users,\n            total_nonbridged_users,\n            total_room_count,\n            daily_active_users,\n            daily_active_rooms,\n            daily_messages,\n            daily_sent_messages,\n            daily_active_e2ee_rooms,\n            daily_e2ee_messages,\n            daily_sent_e2ee_messages,\n            monthly_active_users,\n            r30_users_all,\n            r30_users_android,\n            r30_users_ios,\n            r30_users_electron,\n            r30_users_web,\n            r30v2_users_all,\n            r30v2_users_android,\n            r30v2_users_ios,\n            r30v2_users_electron,\n            r30v2_users_web,\n            daily_user_type_native,\n            daily_user_type_bridged,\n            daily_user_type_guest,\n            daily_active_homeservers\n          )\n        SELECT\n          local_timestamp:: DATE,\n          SUM(total_users),\n          SUM(total_nonbridged_users),\n          SUM(total_room_count),\n          SUM(daily_active_users),\n          SUM(daily_active_rooms),\n          SUM(daily_messages),\n          SUM(daily_sent_messages),\n          SUM(daily_active_e2ee_rooms),\n          SUM(daily_e2ee_messages),\n          SUM(daily_sent_e2ee_messages),\n          SUM(monthly_active_users),\n          SUM(r30_users_all),\n          SUM(r30_users_android),\n          SUM(r30_users_ios),\n          SUM(r30_users_electron),\n          SUM(r30_users_web),\n          SUM(r30v2_users_all),\n          SUM(r30v2_users_android),\n          SUM(r30v2_users_ios),\n          SUM(r30v2_users_electron),\n          SUM(r30v2_users_web),\n          SUM(daily_user_type_native),\n          SUM(daily_user_type_bridged),\n          SUM(daily_user_type_guest),\n          COUNT(homeserver)\n        FROM\n          (\n            SELECT\n              DISTINCT ON (homeserver, local_timestamp:: DATE) *\n            FROM\n              reports\n            WHERE\n              local_timestamp:: DATE >= (\n                SELECT\n                  COALESCE(MAX(day), 'EPOCH':: DATE)\n                FROM\n                  aggregated_stats\n              )\n            ORDER BY\n              homeserver,\n              local_timestamp:: DATE,\n              local_timestamp DESC\n          ) as pg_sucks\n        GROUP BY\n          local_timestamp:: DATE ON CONFLICT (day) DO\n        UPDATE\n        SET\n          total_users = excluded.total_users,\n          total_nonbridged_users = excluded.total_nonbridged_users,\n          total_room_count = excluded.total_room_count,\n          daily_active_users = excluded.daily_active_users,\n          daily_active_rooms = excluded.daily_active_rooms,\n          daily_messages = excluded.daily_messages,\n          daily_sent_messages = excluded.daily_sent_messages,\n          daily_active_e2ee_rooms = excluded.daily_active_e2ee_rooms,\n          daily_e2ee_messages = excluded.daily_e2ee_messages,\n          daily_sent_e2ee_messages = excluded.daily_sent_e2ee_messages,\n          monthly_active_users = excluded.monthly_active_users,\n          r30_users_all = excluded.r30_users_all,\n          r30_users_android = excluded.r30_users_android,\n          r30_users_ios = excluded.r30_users_ios,\n          r30_users_electron = excluded.r30_users_electron,\n          r30_users_web = excluded.r30_users_web,\n          r30v2_users_all = excluded.r30_users_all,\n          r30v2_users_android = excluded.r30_users_android,\n          r30v2_users_ios = excluded.r30_users_ios,\n          r30v2_users_electron = excluded.r30_users_electron,\n          r30v2_users_web = excluded.r30_users_web,\n          daily_user_type_native = excluded.daily_user_type_native,\n          daily_user_type_bridged = excluded.daily_user_type_bridged,\n          daily_user_type_guest = excluded.daily_user_type_guest,\n          daily_active_homeservers = excluded.daily_active_homeservers;",
-    "describe": {
-      "columns": [],
-      "parameters": {
-        "Left": []
-      },
-      "nullable": []
-    }
-  },
-  "f4a1839e714f12a4dc871ed8be4c13c513e1760d573a7aefbd5faa9af0909593": {
-    "query": "\n        INSERT INTO\n          reports (\n            homeserver,\n            local_timestamp,\n            remote_timestamp,\n            remote_addr,\n            forwarded_for,\n            uptime_seconds,\n            total_users,\n            total_nonbridged_users,\n            total_room_count,\n            daily_active_users,\n            daily_active_rooms,\n            daily_messages,\n            daily_sent_messages,\n            daily_active_e2ee_rooms,\n            daily_e2ee_messages,\n            daily_sent_e2ee_messages,\n            monthly_active_users,\n            r30_users_all,\n            r30_users_android,\n            r30_users_ios,\n            r30_users_electron,\n            r30_users_web,\n            r30v2_users_all,\n            r30v2_users_android,\n            r30v2_users_ios,\n            r30v2_users_electron,\n            r30v2_users_web,\n            cpu_average,\n            memory_rss,\n            cache_factor,\n            event_cache_size,\n            user_agent,\n            daily_user_type_native,\n            daily_user_type_bridged,\n            daily_user_type_guest,\n            python_version,\n            database_engine,\n            database_server_version,\n            server_context,\n            log_level\n          )\n        VALUES\n          (\n            $1,\n            $2,\n            $3,\n            $4,\n            $5,\n            $6,\n            $7,\n            $8,\n            $9,\n            $10,\n            $11,\n            $12,\n            $13,\n            $14,\n            $15,\n            $16,\n            $17,\n            $18,\n            $19,\n            $20,\n            $21,\n            $22,\n            $23,\n            $24,\n            $25,\n            $26,\n            $27,\n            $28,\n            $29,\n            $30,\n            $31,\n            $32,\n            $33,\n            $34,\n            $35,\n            $36,\n            $37,\n            $38,\n            $39,\n            $40\n          ) RETURNING id;",
+  "8433cecb95400cf075bf813a43c0678495a6851c98ebdce35e968f780cf898a0": {
     "describe": {
       "columns": [
         {
+          "name": "homeserver",
           "ordinal": 0,
+          "type_info": "Text"
+        },
+        {
+          "name": "local_timestamp",
+          "ordinal": 1,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "remote_timestamp",
+          "ordinal": 2,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "remote_addr",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "forwarded_for",
+          "ordinal": 4,
+          "type_info": "Text"
+        },
+        {
+          "name": "uptime_seconds",
+          "ordinal": 5,
+          "type_info": "Int8"
+        },
+        {
+          "name": "total_users",
+          "ordinal": 6,
+          "type_info": "Int8"
+        },
+        {
+          "name": "total_nonbridged_users",
+          "ordinal": 7,
+          "type_info": "Int8"
+        },
+        {
+          "name": "total_room_count",
+          "ordinal": 8,
+          "type_info": "Int8"
+        },
+        {
+          "name": "daily_active_users",
+          "ordinal": 9,
+          "type_info": "Int8"
+        },
+        {
+          "name": "daily_active_rooms",
+          "ordinal": 10,
+          "type_info": "Int8"
+        },
+        {
+          "name": "daily_messages",
+          "ordinal": 11,
+          "type_info": "Int8"
+        },
+        {
+          "name": "daily_sent_messages",
+          "ordinal": 12,
+          "type_info": "Int8"
+        },
+        {
+          "name": "daily_active_e2ee_rooms",
+          "ordinal": 13,
+          "type_info": "Int8"
+        },
+        {
+          "name": "daily_e2ee_messages",
+          "ordinal": 14,
+          "type_info": "Int8"
+        },
+        {
+          "name": "daily_sent_e2ee_messages",
+          "ordinal": 15,
+          "type_info": "Int8"
+        },
+        {
+          "name": "monthly_active_users",
+          "ordinal": 16,
+          "type_info": "Int8"
+        },
+        {
+          "name": "r30_users_all",
+          "ordinal": 17,
+          "type_info": "Int8"
+        },
+        {
+          "name": "r30_users_android",
+          "ordinal": 18,
+          "type_info": "Int8"
+        },
+        {
+          "name": "r30_users_ios",
+          "ordinal": 19,
+          "type_info": "Int8"
+        },
+        {
+          "name": "r30_users_electron",
+          "ordinal": 20,
+          "type_info": "Int8"
+        },
+        {
+          "name": "r30_users_web",
+          "ordinal": 21,
+          "type_info": "Int8"
+        },
+        {
+          "name": "r30v2_users_all",
+          "ordinal": 22,
+          "type_info": "Int8"
+        },
+        {
+          "name": "r30v2_users_android",
+          "ordinal": 23,
+          "type_info": "Int8"
+        },
+        {
+          "name": "r30v2_users_ios",
+          "ordinal": 24,
+          "type_info": "Int8"
+        },
+        {
+          "name": "r30v2_users_electron",
+          "ordinal": 25,
+          "type_info": "Int8"
+        },
+        {
+          "name": "r30v2_users_web",
+          "ordinal": 26,
+          "type_info": "Int8"
+        },
+        {
+          "name": "cpu_average",
+          "ordinal": 27,
+          "type_info": "Int8"
+        },
+        {
+          "name": "memory_rss",
+          "ordinal": 28,
+          "type_info": "Int8"
+        },
+        {
+          "name": "cache_factor",
+          "ordinal": 29,
+          "type_info": "Float8"
+        },
+        {
+          "name": "event_cache_size",
+          "ordinal": 30,
+          "type_info": "Int8"
+        },
+        {
+          "name": "user_agent",
+          "ordinal": 31,
+          "type_info": "Text"
+        },
+        {
+          "name": "daily_user_type_native",
+          "ordinal": 32,
+          "type_info": "Int8"
+        },
+        {
+          "name": "daily_user_type_bridged",
+          "ordinal": 33,
+          "type_info": "Int8"
+        },
+        {
+          "name": "daily_user_type_guest",
+          "ordinal": 34,
+          "type_info": "Int8"
+        },
+        {
+          "name": "python_version",
+          "ordinal": 35,
+          "type_info": "Text"
+        },
+        {
+          "name": "database_engine",
+          "ordinal": 36,
+          "type_info": "Text"
+        },
+        {
+          "name": "database_server_version",
+          "ordinal": 37,
+          "type_info": "Text"
+        },
+        {
+          "name": "server_context",
+          "ordinal": 38,
+          "type_info": "Text"
+        },
+        {
+          "name": "log_level",
+          "ordinal": 39,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            SELECT\n              homeserver,\n              local_timestamp,\n              remote_timestamp,\n              remote_addr,\n              forwarded_for,\n              uptime_seconds,\n              total_users,\n              total_nonbridged_users,\n              total_room_count,\n              daily_active_users,\n              daily_active_rooms,\n              daily_messages,\n              daily_sent_messages,\n              daily_active_e2ee_rooms,\n              daily_e2ee_messages,\n              daily_sent_e2ee_messages,\n              monthly_active_users,\n              r30_users_all,\n              r30_users_android,\n              r30_users_ios,\n              r30_users_electron,\n              r30_users_web,\n              r30v2_users_all,\n              r30v2_users_android,\n              r30v2_users_ios,\n              r30v2_users_electron,\n              r30v2_users_web,\n              cpu_average,\n              memory_rss,\n              cache_factor,\n              event_cache_size,\n              user_agent,\n              daily_user_type_native,\n              daily_user_type_bridged,\n              daily_user_type_guest,\n              python_version,\n              database_engine,\n              database_server_version,\n              server_context,\n              log_level\n            FROM\n              reports\n            WHERE\n              id = $1"
+  },
+  "86ddeccb08afd89e87de480a10b9351d4f29c2b182dd11cecd5e50a76920ce44": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "\n        INSERT INTO\n          aggregated_stats (\n            day,\n            total_users,\n            total_nonbridged_users,\n            total_room_count,\n            daily_active_users,\n            daily_active_rooms,\n            daily_messages,\n            daily_sent_messages,\n            daily_active_e2ee_rooms,\n            daily_e2ee_messages,\n            daily_sent_e2ee_messages,\n            monthly_active_users,\n            r30_users_all,\n            r30_users_android,\n            r30_users_ios,\n            r30_users_electron,\n            r30_users_web,\n            r30v2_users_all,\n            r30v2_users_android,\n            r30v2_users_ios,\n            r30v2_users_electron,\n            r30v2_users_web,\n            daily_user_type_native,\n            daily_user_type_bridged,\n            daily_user_type_guest,\n            daily_active_homeservers\n          )\n        SELECT\n          local_timestamp:: DATE,\n          SUM(total_users),\n          SUM(total_nonbridged_users),\n          SUM(total_room_count),\n          SUM(daily_active_users),\n          SUM(daily_active_rooms),\n          SUM(daily_messages),\n          SUM(daily_sent_messages),\n          SUM(daily_active_e2ee_rooms),\n          SUM(daily_e2ee_messages),\n          SUM(daily_sent_e2ee_messages),\n          SUM(monthly_active_users),\n          SUM(r30_users_all),\n          SUM(r30_users_android),\n          SUM(r30_users_ios),\n          SUM(r30_users_electron),\n          SUM(r30_users_web),\n          SUM(r30v2_users_all),\n          SUM(r30v2_users_android),\n          SUM(r30v2_users_ios),\n          SUM(r30v2_users_electron),\n          SUM(r30v2_users_web),\n          SUM(daily_user_type_native),\n          SUM(daily_user_type_bridged),\n          SUM(daily_user_type_guest),\n          COUNT(homeserver)\n        FROM\n          (\n            SELECT\n              DISTINCT ON (homeserver, local_timestamp:: DATE) *\n            FROM\n              reports\n            WHERE\n              local_timestamp:: DATE >= (\n                SELECT\n                  COALESCE(MAX(day), 'EPOCH':: DATE)\n                FROM\n                  aggregated_stats\n              )\n            ORDER BY\n              homeserver,\n              local_timestamp:: DATE,\n              local_timestamp DESC\n          ) as pg_sucks\n        GROUP BY\n          local_timestamp:: DATE ON CONFLICT (day) DO\n        UPDATE\n        SET\n          total_users = excluded.total_users,\n          total_nonbridged_users = excluded.total_nonbridged_users,\n          total_room_count = excluded.total_room_count,\n          daily_active_users = excluded.daily_active_users,\n          daily_active_rooms = excluded.daily_active_rooms,\n          daily_messages = excluded.daily_messages,\n          daily_sent_messages = excluded.daily_sent_messages,\n          daily_active_e2ee_rooms = excluded.daily_active_e2ee_rooms,\n          daily_e2ee_messages = excluded.daily_e2ee_messages,\n          daily_sent_e2ee_messages = excluded.daily_sent_e2ee_messages,\n          monthly_active_users = excluded.monthly_active_users,\n          r30_users_all = excluded.r30_users_all,\n          r30_users_android = excluded.r30_users_android,\n          r30_users_ios = excluded.r30_users_ios,\n          r30_users_electron = excluded.r30_users_electron,\n          r30_users_web = excluded.r30_users_web,\n          r30v2_users_all = excluded.r30_users_all,\n          r30v2_users_android = excluded.r30_users_android,\n          r30v2_users_ios = excluded.r30_users_ios,\n          r30v2_users_electron = excluded.r30_users_electron,\n          r30v2_users_web = excluded.r30_users_web,\n          daily_user_type_native = excluded.daily_user_type_native,\n          daily_user_type_bridged = excluded.daily_user_type_bridged,\n          daily_user_type_guest = excluded.daily_user_type_guest,\n          daily_active_homeservers = excluded.daily_active_homeservers;"
+  },
+  "f4a1839e714f12a4dc871ed8be4c13c513e1760d573a7aefbd5faa9af0909593": {
+    "describe": {
+      "columns": [
+        {
           "name": "id",
+          "ordinal": 0,
           "type_info": "Int8"
         }
+      ],
+      "nullable": [
+        false
       ],
       "parameters": {
         "Left": [
@@ -63,10 +319,8 @@
           "Text",
           "Text"
         ]
-      },
-      "nullable": [
-        false
-      ]
-    }
+      }
+    },
+    "query": "\n        INSERT INTO\n          reports (\n            homeserver,\n            local_timestamp,\n            remote_timestamp,\n            remote_addr,\n            forwarded_for,\n            uptime_seconds,\n            total_users,\n            total_nonbridged_users,\n            total_room_count,\n            daily_active_users,\n            daily_active_rooms,\n            daily_messages,\n            daily_sent_messages,\n            daily_active_e2ee_rooms,\n            daily_e2ee_messages,\n            daily_sent_e2ee_messages,\n            monthly_active_users,\n            r30_users_all,\n            r30_users_android,\n            r30_users_ios,\n            r30_users_electron,\n            r30_users_web,\n            r30v2_users_all,\n            r30v2_users_android,\n            r30v2_users_ios,\n            r30v2_users_electron,\n            r30v2_users_web,\n            cpu_average,\n            memory_rss,\n            cache_factor,\n            event_cache_size,\n            user_agent,\n            daily_user_type_native,\n            daily_user_type_bridged,\n            daily_user_type_guest,\n            python_version,\n            database_engine,\n            database_server_version,\n            server_context,\n            log_level\n          )\n        VALUES\n          (\n            $1,\n            $2,\n            $3,\n            $4,\n            $5,\n            $6,\n            $7,\n            $8,\n            $9,\n            $10,\n            $11,\n            $12,\n            $13,\n            $14,\n            $15,\n            $16,\n            $17,\n            $18,\n            $19,\n            $20,\n            $21,\n            $22,\n            $23,\n            $24,\n            $25,\n            $26,\n            $27,\n            $28,\n            $29,\n            $30,\n            $31,\n            $32,\n            $33,\n            $34,\n            $35,\n            $36,\n            $37,\n            $38,\n            $39,\n            $40\n          ) RETURNING id;"
   }
 }

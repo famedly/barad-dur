@@ -1,12 +1,11 @@
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::process;
 
 use anyhow::{Context, Result};
-use axum::extract::{FromRequest, RequestParts};
-use axum::handler::put;
-use axum::{async_trait, extract, AddExtensionLayer, Router, Server};
-use chrono::SubsecRound;
-use http::{HeaderMap, StatusCode};
+use axum::headers::{Header, HeaderName, UserAgent};
+use axum::routing::put;
+use axum::{extract, Extension, Router, Server, TypedHeader};
+use http::{HeaderValue, StatusCode};
 use tokio::sync::mpsc;
 
 use crate::model;
@@ -16,55 +15,64 @@ pub async fn run_server(settings: ServerSettings, tx: mpsc::Sender<model::Report
         .serve(
             Router::new()
                 .route("/report-usage-stats/push", put(save_report))
-                .layer(AddExtensionLayer::new(tx))
-                .into_make_service_with_connect_info::<SocketAddr, _>(),
+                .layer(Extension(tx))
+                .into_make_service_with_connect_info::<SocketAddr>(),
         )
         .await?;
 
     Ok(())
 }
 
-pub struct ExtractHeaderMap(Option<HeaderMap>);
+pub struct XForwardedFor(IpAddr);
 
-#[async_trait]
-impl<B> FromRequest<B> for ExtractHeaderMap
-where
-    B: Send,
-{
-    type Rejection = (StatusCode, &'static str);
+impl Header for XForwardedFor {
+    fn name() -> &'static axum::headers::HeaderName {
+        static NAME: HeaderName = HeaderName::from_static("x-forwarded-for");
+        &NAME
+    }
 
-    async fn from_request(req: &mut RequestParts<B>) -> Result<Self, Self::Rejection> {
-        Ok(Self(req.take_headers()))
+    fn decode<'i, I>(values: &mut I) -> Result<Self, axum::headers::Error>
+    where
+        Self: Sized,
+        I: Iterator<Item = &'i http::HeaderValue>,
+    {
+        let value = values.next().ok_or_else(axum::headers::Error::invalid)?;
+        Ok(Self(
+            value
+                .to_str()
+                .map_err(|_| axum::headers::Error::invalid())?
+                .parse()
+                .map_err(|_| axum::headers::Error::invalid())?,
+        ))
+    }
+
+    fn encode<E: Extend<http::HeaderValue>>(&self, values: &mut E) {
+        let value = HeaderValue::from_str(&self.0.to_string())
+            .expect("IP addresses are always safe header values");
+        values.extend(std::iter::once(value))
     }
 }
 
 async fn save_report(
     tx: extract::Extension<mpsc::Sender<model::Report>>,
-    report: extract::Json<model::Report>,
     addr: Option<extract::ConnectInfo<SocketAddr>>,
-    ExtractHeaderMap(headers): ExtractHeaderMap,
+    forwarded_addr: Option<TypedHeader<XForwardedFor>>,
+    user_agent: Option<TypedHeader<UserAgent>>,
+    report: extract::Json<model::Report>,
 ) -> StatusCode {
     let mut report = report;
 
-    report.local_timestamp = Some(chrono::Utc::now().round_subsecs(6));
-
+    report.local_timestamp = Some({
+        let ts = time::OffsetDateTime::now_utc();
+        // Dropping some precision here, because postgres doesn't store it anyway, which causes
+        // tests to fail because the value coming out was less precise than the value going in
+        ts.replace_millisecond((ts.microsecond() / 1000).try_into().unwrap())
+            .unwrap()
+    });
     report.remote_addr = addr.map(|addr| addr.0.to_string());
-
-    report.forwarded_for = headers.as_ref().and_then(|headers| {
-        headers
-            .get("X-Forwarded-For")
-            .map(|addr| addr.to_str().ok())
-            .flatten()
-            .map(String::from)
-    });
-
-    report.user_agent = headers.as_ref().and_then(|headers| {
-        headers
-            .get("User-Agent")
-            .map(|value| value.to_str().ok())
-            .flatten()
-            .map(String::from)
-    });
+    report.forwarded_for =
+        forwarded_addr.map(|TypedHeader(forwarded_addr)| forwarded_addr.0.to_string());
+    report.user_agent = user_agent.map(|TypedHeader(user_agent)| user_agent.to_string());
 
     if let Err(err) = tx
         .send(report.0)
@@ -81,20 +89,21 @@ async fn save_report(
 pub mod tests {
     use std::net::SocketAddr;
 
-    use axum::extract;
+    use axum::{extract, headers::UserAgent, TypedHeader};
     use http::StatusCode;
     use tokio::sync::mpsc;
 
     use crate::model;
 
-    use super::ExtractHeaderMap;
+    use super::XForwardedFor;
 
     pub async fn save_report(
         tx: extract::Extension<mpsc::Sender<model::Report>>,
-        report: extract::Json<model::Report>,
         addr: Option<extract::ConnectInfo<SocketAddr>>,
-        ExtractHeaderMap(headers): ExtractHeaderMap,
+        forwarded_addr: Option<TypedHeader<XForwardedFor>>,
+        user_agent: Option<TypedHeader<UserAgent>>,
+        report: extract::Json<model::Report>,
     ) -> StatusCode {
-        super::save_report(tx, report, addr, ExtractHeaderMap(headers)).await
+        super::save_report(tx, addr, forwarded_addr, user_agent, report).await
     }
 }

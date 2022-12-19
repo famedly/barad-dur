@@ -1,14 +1,18 @@
-use chrono::{serde::ts_seconds_option, DateTime, Utc};
 use serde::Deserialize;
 use sqlx::FromRow;
+use time::OffsetDateTime;
 
 #[derive(Debug, Deserialize, PartialEq, FromRow, Clone)]
 pub struct Report {
     pub homeserver: Option<String>,
-    #[serde(with = "ts_seconds_option", default)]
-    pub local_timestamp: Option<DateTime<Utc>>,
-    #[serde(with = "ts_seconds_option", rename(deserialize = "timestamp"), default)]
-    pub remote_timestamp: Option<DateTime<Utc>>,
+    #[serde(with = "time::serde::timestamp::option", default)]
+    pub local_timestamp: Option<OffsetDateTime>,
+    #[serde(
+        with = "time::serde::timestamp::option",
+        rename(deserialize = "timestamp"),
+        default
+    )]
+    pub remote_timestamp: Option<OffsetDateTime>,
     pub remote_addr: Option<String>,
     pub forwarded_for: Option<String>,
     pub uptime_seconds: Option<i64>,

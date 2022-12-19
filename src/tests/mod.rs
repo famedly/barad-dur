@@ -4,8 +4,8 @@ use crate::server;
 
 use std::{collections::HashMap, env};
 
-use axum::handler::put;
-use axum::AddExtensionLayer;
+use axum::routing::put;
+use axum::Extension;
 use axum::Router;
 use http::Request;
 use http::StatusCode;
@@ -24,7 +24,7 @@ async fn integration_testing() {
     let app = || {
         Router::new()
             .route("/report-usage-stats/push", put(server::tests::save_report))
-            .layer(AddExtensionLayer::new(tx.clone()))
+            .layer(Extension(tx.clone()))
     };
 
     let mut test_payloads = HashMap::new();

@@ -20,11 +20,12 @@ pub struct Settings {
 
 impl Settings {
     pub fn load(config: &str) -> Result<Self> {
-        let mut conf = Config::new();
-
-        conf.set_default("server.host", "[::]:8080")?;
-        conf.set_default("log.level", "warn")?;
-        conf.merge(File::with_name(config))?;
-        conf.try_into().context("can't load config")
+        Ok(Config::builder()
+            .set_default("server.host", "[::]:8080")?
+            .set_default("log.level", "warn")?
+            .add_source(File::with_name(config))
+            .build()
+            .context("can't load config")?
+            .try_deserialize()?)
     }
 }
