@@ -20,7 +20,7 @@ fn setup_logging(level: &str) -> Result<()> {
             out.finish(format_args!(
                 "[{}][{}][{}] {}",
                 time::OffsetDateTime::now_local()
-                    .unwrap()
+                    .unwrap_or_else(|_| time::OffsetDateTime::now_utc())
                     .format(format_description!(
                         "[year]-[month]-[day] [hour]:[minute]:[second]"
                     ))
