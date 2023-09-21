@@ -1,0 +1,174 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ "*" ]
+  pull_request:
+    branches: [ "*" ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref}}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  DATABASE_URL: "postgresql://postgres:password@postgres:5432/baraddur"
+  SQLX_OFFLINE: "true"
+jobs:
+  check:
+    runs-on: ubuntu-latest-16core
+    container: ghcr.io/famedly/rust-container:nightly
+    name: Formatting, lints, syntax, and typos
+    steps:
+      - uses: actions/checkout@v3
+      - uses: famedly/backend-build-workflows/.github/actions/rust-prepare@main
+        with:
+          gitlab_user: ${{ secrets.GITLAB_USER }}
+          gitlab_pass: ${{ secrets.GITLAB_PASS }}
+          gitlab_ssh: ${{ secrets.CI_SSH_PRIVATE_KEY}}
+
+      - name: Caching
+        uses: Swatinem/rust-cache@b8a6852b4f997182bdea832df3f9e153038b5191
+        with:
+          shared-key: "stable"
+
+      - name: Typos
+        uses: crate-ci/typos@ef5fcf92dfbd679f97c0371159e143852f7b1eb1
+
+      - name: Check
+        shell: bash
+        env:
+          SQLX_OFFLINE: "true"
+        run: |
+          cargo +${NIGHTLY_VERSION} fmt -- --check
+          cargo lints clippy --workspace --all-targets -- -D warnings
+
+  test:
+    runs-on: ubuntu-latest-16core
+    container: ghcr.io/famedly/rust-container:nightly
+    name: Tests and coverage
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_USER: postgres
+          POSTGRES_DB: baraddur
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          path: head
+
+      - uses: famedly/backend-build-workflows/.github/actions/rust-prepare@main
+        with:
+          gitlab_user: ${{ secrets.GITLAB_USER }}
+          gitlab_pass: ${{ secrets.GITLAB_PASS }}
+          gitlab_ssh: ${{ secrets.CI_SSH_PRIVATE_KEY}}
+
+      - name: Caching
+        uses: Swatinem/rust-cache@b8a6852b4f997182bdea832df3f9e153038b5191
+        with:
+          shared-key: "stable"
+          workspaces: "head -> target"
+
+      - name: Test
+        shell: bash
+        working-directory: head
+        run: |
+          sqlx migrate run
+          cargo sqlx prepare --check -- --all-targets --all-features
+          cargo llvm-cov nextest --workspace --lcov --output-path $GITHUB_WORKSPACE/new-cov.lcov
+
+      - name: Load base coverage results from cache
+        if: github.event_name == 'pull_request'
+        id: cache-coverage
+        uses: actions/cache@v3
+        with:
+          path: ./old-cov.lcov
+          key: coverage-${{ github.event.pull_request.base.sha }}
+
+      - name: Pull base
+        uses: actions/checkout@v3
+        if: github.event_name == 'pull_request' && steps.cache-coverage.outputs.cache-hit != 'true'
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          repository: ${{ github.event.pull_request.base.full_name }}
+          path: base   
+
+      - name: Generate base coverage
+        if: github.event_name == 'pull_request' && steps.cache-coverage.outputs.cache-hit != 'true'
+        working-directory: base
+        run: |
+          sqlx migrate run
+          cargo sqlx prepare --check -- --all-targets --all-features
+          cargo llvm-cov nextest --workspace --lcov --output-path $GITHUB_WORKSPACE/old-cov.lcov
+    
+      - name: Meow Coverage
+        id: coverage-report
+        uses: famedly/meow-coverage@main
+        if: github.event_name == 'pull_request'
+        with:
+          new-lcov-file: 'new-cov.lcov'
+          old-lcov-file: ${{ github.event_name == 'pull_request' && 'old-cov.lcov' || '' }}
+          source-prefix: 'src/'
+          pr-number: ${{ github.event_name == 'pull_request' && github.event.pull_request.number || '' }}
+          repo-name: ${{ github.repository }}
+          commit-id: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.event.after }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  doc-test:
+    runs-on: ubuntu-latest-16core
+    container: ghcr.io/famedly/rust-container:nightly
+    name: Documentation tests
+    steps:
+      - uses: actions/checkout@v3
+      - uses: famedly/backend-build-workflows/.github/actions/rust-prepare@main
+        with:
+          gitlab_user: ${{ secrets.GITLAB_USER }}
+          gitlab_pass: ${{ secrets.GITLAB_PASS }}
+          gitlab_ssh: ${{ secrets.CI_SSH_PRIVATE_KEY}}
+
+      - name: Caching
+        uses: Swatinem/rust-cache@b8a6852b4f997182bdea832df3f9e153038b5191
+        with:
+          shared-key: "nightly"
+
+      - name: Documentation tests
+        shell: bash
+        env:
+          SQLX_OFFLINE: "true"
+        run: |
+          cargo +${NIGHTLY_VERSION} test --doc --workspace --verbose
+
+  udeps:
+    runs-on: ubuntu-latest-16core
+    container: ghcr.io/famedly/rust-container:nightly
+    name: Unused dependencies
+    steps:  
+      - uses: actions/checkout@v3
+      - uses: famedly/backend-build-workflows/.github/actions/rust-prepare@main
+        with:
+          gitlab_user: ${{ secrets.GITLAB_USER }}
+          gitlab_pass: ${{ secrets.GITLAB_PASS }}
+          gitlab_ssh: ${{ secrets.CI_SSH_PRIVATE_KEY}}
+
+      - name: Caching
+        uses: Swatinem/rust-cache@b8a6852b4f997182bdea832df3f9e153038b5191
+        with:
+          shared-key: "nightly"
+
+      - name: Unused dependencies
+        shell: bash
+        env:
+          SQLX_OFFLINE: "true"
+        run: |
+          cargo +${NIGHTLY_VERSION} udeps
