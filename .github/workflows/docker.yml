@@ -9,4 +9,6 @@ jobs:
   build:
     uses: famedly/backend-build-workflows/.github/workflows/docker-backend.yml@main
     secrets: inherit
-    name: barad-dur
+    with:
+      name: barad-dur
+      registry: docker-oss.nexus.famedly.de
