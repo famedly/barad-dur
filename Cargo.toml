@@ -9,7 +9,7 @@ edition = "2021"
 anyhow = "1.0.68"
 axum = { version = "0.6.1", features = [ "headers", "tokio" ] }
 time = { version = "0.3.17", features = [ "serde", "local-offset" ] }
-clap = "4.0.29"
+clap = "4.4.12"
 config = "0.13.3"
 fern = "0.6.1"
 http = "0.2.8"
