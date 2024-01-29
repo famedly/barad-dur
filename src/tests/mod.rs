@@ -4,7 +4,7 @@ use crate::server;
 
 use std::{collections::HashMap, env};
 
-use axum::routing::put;
+use axum::routing::{get, put};
 use axum::Extension;
 use axum::Router;
 use http::Request;
@@ -65,4 +65,27 @@ async fn integration_testing() {
         );
     }
     database::tests::aggregate_stats(&pool).await.unwrap();
+}
+
+#[tokio::test]
+async fn test_healthcheck() {
+    let app = || Router::new().route("/health", get(server::tests::health_check));
+    let resp = app()
+        .oneshot(
+            Request::builder()
+                .method(http::Method::GET)
+                .uri("/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        resp.status(),
+        StatusCode::OK,
+        "testing GET '/health', got response {:?} with body {:?}",
+        resp,
+        resp.body(),
+    );
 }

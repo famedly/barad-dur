@@ -25,6 +25,13 @@ For configuration options look into `config.sample.yaml`.
 
 Barad-dûr has import scripts for panopticon, which you can find in `misc/panopticon-import`, together with usage instructions.
 
+## Healthcheck for Docker container
+The service API implements the `/health` checks for the Docker containers.
+
+```bash
+curl -fSs http://localhost:8080/health || exit 1
+```
+
 ## Contributing
 
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.

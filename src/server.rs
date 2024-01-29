@@ -3,8 +3,8 @@ use std::process;
 
 use anyhow::{Context, Result};
 use axum::headers::{Header, HeaderName, UserAgent};
-use axum::routing::put;
-use axum::{extract, Extension, Router, Server, TypedHeader};
+use axum::{extract, response::IntoResponse, Extension, Router, Server, TypedHeader};
+use axum::{routing::get, routing::put};
 use http::{HeaderValue, StatusCode};
 use tokio::sync::mpsc;
 
@@ -14,6 +14,7 @@ pub async fn run_server(settings: ServerSettings, tx: mpsc::Sender<model::Report
     Server::bind(&settings.host.parse::<SocketAddr>()?)
         .serve(
             Router::new()
+                .route("/health", get(health_check))
                 .route("/report-usage-stats/push", put(save_report))
                 .layer(Extension(tx))
                 .into_make_service_with_connect_info::<SocketAddr>(),
@@ -21,6 +22,11 @@ pub async fn run_server(settings: ServerSettings, tx: mpsc::Sender<model::Report
         .await?;
 
     Ok(())
+}
+
+// Returns 200 OK for health checking
+async fn health_check() -> impl IntoResponse {
+    (StatusCode::OK, "OK")
 }
 
 pub struct XForwardedFor(IpAddr);
@@ -89,7 +95,7 @@ async fn save_report(
 pub mod tests {
     use std::net::SocketAddr;
 
-    use axum::{extract, headers::UserAgent, TypedHeader};
+    use axum::{extract, headers::UserAgent, response::IntoResponse, TypedHeader};
     use http::StatusCode;
     use tokio::sync::mpsc;
 
@@ -105,5 +111,9 @@ pub mod tests {
         report: extract::Json<model::Report>,
     ) -> StatusCode {
         super::save_report(tx, addr, forwarded_addr, user_agent, report).await
+    }
+
+    pub async fn health_check() -> impl IntoResponse {
+        super::health_check().await
     }
 }
