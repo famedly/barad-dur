@@ -1,0 +1,61 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO\n          reports (\n            homeserver,\n            local_timestamp,\n            remote_timestamp,\n            remote_addr,\n            forwarded_for,\n            uptime_seconds,\n            total_users,\n            total_nonbridged_users,\n            total_room_count,\n            daily_active_users,\n            daily_active_rooms,\n            daily_messages,\n            daily_sent_messages,\n            daily_active_e2ee_rooms,\n            daily_e2ee_messages,\n            daily_sent_e2ee_messages,\n            monthly_active_users,\n            r30_users_all,\n            r30_users_android,\n            r30_users_ios,\n            r30_users_electron,\n            r30_users_web,\n            r30v2_users_all,\n            r30v2_users_android,\n            r30v2_users_ios,\n            r30v2_users_electron,\n            r30v2_users_web,\n            cpu_average,\n            memory_rss,\n            cache_factor,\n            event_cache_size,\n            user_agent,\n            daily_user_type_native,\n            daily_user_type_bridged,\n            daily_user_type_guest,\n            python_version,\n            database_engine,\n            database_server_version,\n            server_context,\n            log_level\n          )\n        VALUES\n          (\n            $1,\n            $2,\n            $3,\n            $4,\n            $5,\n            $6,\n            $7,\n            $8,\n            $9,\n            $10,\n            $11,\n            $12,\n            $13,\n            $14,\n            $15,\n            $16,\n            $17,\n            $18,\n            $19,\n            $20,\n            $21,\n            $22,\n            $23,\n            $24,\n            $25,\n            $26,\n            $27,\n            $28,\n            $29,\n            $30,\n            $31,\n            $32,\n            $33,\n            $34,\n            $35,\n            $36,\n            $37,\n            $38,\n            $39,\n            $40\n          ) RETURNING id;",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Timestamptz",
+        "Timestamptz",
+        "Text",
+        "Text",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Float8",
+        "Int8",
+        "Text",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "f4a1839e714f12a4dc871ed8be4c13c513e1760d573a7aefbd5faa9af0909593"
+}

@@ -21,11 +21,13 @@ async fn integration_testing() {
     let pool = sqlx::PgPool::connect(&db_url).await.unwrap();
     let (tx, mut rx) = mpsc::channel::<model::Report>(64);
 
-    let app = || {
-        Router::new()
-            .route("/report-usage-stats/push", put(server::tests::save_report))
-            .layer(Extension(tx.clone()))
-    };
+    let app = Router::new()
+        .route("/report-usage-stats/push", put(server::tests::save_report))
+        .route(
+            "/aggregated-stats/:day",
+            get(move |day| server::tests::get_aggregated_stats(db_url.clone(), day)),
+        )
+        .layer(Extension(tx.clone()));
 
     let mut test_payloads = HashMap::new();
     test_payloads.insert("v0.33.6", include_str!("./report-v0.33.6.json"));
@@ -34,7 +36,7 @@ async fn integration_testing() {
     test_payloads.insert("v1.28.0", include_str!("./report-v1.28.0.json"));
 
     for (version, payload) in test_payloads {
-        let app = app();
+        let app = app.clone();
 
         let resp = app
             .oneshot(
@@ -65,6 +67,36 @@ async fn integration_testing() {
         );
     }
     database::tests::aggregate_stats(&pool).await.unwrap();
+
+    let date = time::OffsetDateTime::now_local()
+        .unwrap_or_else(|_| time::OffsetDateTime::now_utc())
+        .date();
+
+    let date = date
+        .format(&time::format_description::well_known::Iso8601::DATE)
+        .unwrap();
+    let uri = format!("/aggregated-stats/{}", date);
+
+    let aggregated_res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(http::Method::GET)
+                .uri(&uri)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        aggregated_res.status(),
+        StatusCode::OK,
+        "testing GET '{}', got response {:?} with body {:?}",
+        uri,
+        aggregated_res,
+        aggregated_res.body(),
+    );
 }
 
 #[tokio::test]

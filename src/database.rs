@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use sqlx::PgPool;
 use tokio::{sync::mpsc::Receiver, time::interval};
 
-use crate::model::Report;
+use crate::model::{AggregatedStats, Report};
 use crate::settings::DBSettings;
 
 pub async fn aggregate_loop(settings: &DBSettings) {
@@ -193,6 +193,20 @@ async fn aggregate_stats(pool: &sqlx::PgPool) -> Result<()> {
     .context("could not aggregate stats")?;
 
     Ok(())
+}
+
+pub async fn get_aggregated_stats(
+    db_settings: &DBSettings,
+    day: sqlx::types::time::Date,
+) -> Result<Option<AggregatedStats>> {
+    let pool = get_db_pool(db_settings).await;
+    Ok(sqlx::query_as!(
+        AggregatedStats,
+        "SELECT * FROM aggregated_stats WHERE day = $1",
+        day
+    )
+    .fetch_optional(&pool)
+    .await?)
 }
 
 async fn save_report(pool: &sqlx::PgPool, report: &Report) -> Result<i64> {

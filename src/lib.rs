@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use clap::ArgMatches;
+pub use model::AggregatedStats;
 use settings::Settings;
 
 mod database;
@@ -16,10 +17,11 @@ pub async fn run(opts: ArgMatches) -> Result<()> {
     let (tx, rx) = tokio::sync::mpsc::channel::<model::Report>(64);
 
     let server = {
+        let db_settings = settings.database.clone();
         let settings = settings.server;
         tokio::spawn(async move {
             let tx = tx.clone();
-            server::run_server(settings, tx).await.unwrap();
+            server::run_server(settings, db_settings, tx).await.unwrap();
         })
     };
 

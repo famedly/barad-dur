@@ -1,5 +1,0 @@
-database:
-  url: postgres://postgres:s3cr3t@localhost:5432/barad-dur
-
-server:
-  host: 127.0.0.1:8080

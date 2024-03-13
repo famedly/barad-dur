@@ -3,19 +3,28 @@ use std::process;
 
 use anyhow::{Context, Result};
 use axum::headers::{Header, HeaderName, UserAgent};
-use axum::{extract, response::IntoResponse, Extension, Router, Server, TypedHeader};
+use axum::{extract, response::IntoResponse, Extension, Json, Router, Server, TypedHeader};
 use axum::{routing::get, routing::put};
 use http::{HeaderValue, StatusCode};
 use tokio::sync::mpsc;
 
 use crate::model;
-use crate::settings::ServerSettings;
-pub async fn run_server(settings: ServerSettings, tx: mpsc::Sender<model::Report>) -> Result<()> {
+use crate::settings::{DBSettings, ServerSettings};
+
+pub async fn run_server(
+    settings: ServerSettings,
+    db_settings: DBSettings,
+    tx: mpsc::Sender<model::Report>,
+) -> Result<()> {
     Server::bind(&settings.host.parse::<SocketAddr>()?)
         .serve(
             Router::new()
                 .route("/health", get(health_check))
                 .route("/report-usage-stats/push", put(save_report))
+                .route(
+                    "/aggregated-stats/:day",
+                    get(|day| get_aggregated_stats(db_settings, day)),
+                )
                 .layer(Extension(tx))
                 .into_make_service_with_connect_info::<SocketAddr>(),
         )
@@ -59,6 +68,21 @@ impl Header for XForwardedFor {
     }
 }
 
+async fn get_aggregated_stats(
+    db_settings: DBSettings,
+    day: extract::Path<sqlx::types::time::Date>,
+) -> Result<Json<model::AggregatedStats>, StatusCode> {
+    Ok(Json(
+        crate::database::get_aggregated_stats(&db_settings, *day)
+            .await
+            .map_err(|err| {
+                log::error!("{:?}", err);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?
+            .ok_or(StatusCode::NOT_FOUND)?,
+    ))
+}
+
 async fn save_report(
     tx: extract::Extension<mpsc::Sender<model::Report>>,
     addr: Option<extract::ConnectInfo<SocketAddr>>,
@@ -95,11 +119,12 @@ async fn save_report(
 pub mod tests {
     use std::net::SocketAddr;
 
-    use axum::{extract, headers::UserAgent, response::IntoResponse, TypedHeader};
+    use axum::{extract, headers::UserAgent, response::IntoResponse, Json, TypedHeader};
     use http::StatusCode;
     use tokio::sync::mpsc;
 
     use crate::model;
+    use crate::settings::DBSettings;
 
     use super::XForwardedFor;
 
@@ -115,5 +140,12 @@ pub mod tests {
 
     pub async fn health_check() -> impl IntoResponse {
         super::health_check().await
+    }
+
+    pub async fn get_aggregated_stats(
+        db_url: String,
+        day: extract::Path<sqlx::types::time::Date>,
+    ) -> Result<Json<model::AggregatedStats>, StatusCode> {
+        super::get_aggregated_stats(DBSettings { url: db_url }, day).await
     }
 }
