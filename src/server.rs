@@ -1,7 +1,9 @@
 use std::net::{IpAddr, SocketAddr};
 use std::process;
+use std::sync::Arc;
 
 use anyhow::{Context, Result};
+use axum::extract::{Path, State};
 use axum::headers::{Header, HeaderName, UserAgent};
 use axum::{extract, response::IntoResponse, Extension, Json, Router, Server, TypedHeader};
 use axum::{routing::get, routing::put};
@@ -13,7 +15,7 @@ use crate::settings::{DBSettings, ServerSettings};
 
 pub async fn run_server(
     settings: ServerSettings,
-    db_settings: DBSettings,
+    db_settings: Arc<DBSettings>,
     tx: mpsc::Sender<model::Report>,
 ) -> Result<()> {
     Server::bind(&settings.host.parse::<SocketAddr>()?)
@@ -21,10 +23,12 @@ pub async fn run_server(
             Router::new()
                 .route("/health", get(health_check))
                 .route("/report-usage-stats/push", put(save_report))
+                .route("/aggregated-stats/:day", get(get_aggregated_stats))
                 .route(
-                    "/aggregated-stats/:day",
-                    get(|day| get_aggregated_stats(db_settings, day)),
+                    "/aggregated-stats/:day/:context",
+                    get(get_aggregated_stats_by_context),
                 )
+                .with_state(db_settings)
                 .layer(Extension(tx))
                 .into_make_service_with_connect_info::<SocketAddr>(),
         )
@@ -69,11 +73,26 @@ impl Header for XForwardedFor {
 }
 
 async fn get_aggregated_stats(
-    db_settings: DBSettings,
-    day: extract::Path<sqlx::types::time::Date>,
+    State(db_settings): State<Arc<DBSettings>>,
+    Path(day): Path<sqlx::types::time::Date>,
 ) -> Result<Json<model::AggregatedStats>, StatusCode> {
     Ok(Json(
-        crate::database::get_aggregated_stats(&db_settings, *day)
+        crate::database::get_aggregated_stats(&db_settings, day)
+            .await
+            .map_err(|err| {
+                log::error!("{:?}", err);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?
+            .ok_or(StatusCode::NOT_FOUND)?,
+    ))
+}
+
+async fn get_aggregated_stats_by_context(
+    State(db_settings): State<Arc<DBSettings>>,
+    Path((day, context)): Path<(sqlx::types::time::Date, String)>,
+) -> Result<Json<model::AggregatedStatsByContext>, StatusCode> {
+    Ok(Json(
+        crate::database::get_aggregated_stats_by_context(&db_settings, day, context)
             .await
             .map_err(|err| {
                 log::error!("{:?}", err);
@@ -118,7 +137,9 @@ async fn save_report(
 #[cfg(test)]
 pub mod tests {
     use std::net::SocketAddr;
+    use std::sync::Arc;
 
+    use axum::extract::{Path, State};
     use axum::{extract, headers::UserAgent, response::IntoResponse, Json, TypedHeader};
     use http::StatusCode;
     use tokio::sync::mpsc;
@@ -143,9 +164,16 @@ pub mod tests {
     }
 
     pub async fn get_aggregated_stats(
-        db_url: String,
-        day: extract::Path<sqlx::types::time::Date>,
+        db_settings: State<Arc<DBSettings>>,
+        day: Path<sqlx::types::time::Date>,
     ) -> Result<Json<model::AggregatedStats>, StatusCode> {
-        super::get_aggregated_stats(DBSettings { url: db_url }, day).await
+        super::get_aggregated_stats(db_settings, day).await
+    }
+
+    pub async fn get_aggregated_stats_by_context(
+        db_settings: State<Arc<DBSettings>>,
+        extractors: Path<(sqlx::types::time::Date, String)>,
+    ) -> Result<Json<model::AggregatedStatsByContext>, StatusCode> {
+        super::get_aggregated_stats_by_context(db_settings, extractors).await
     }
 }

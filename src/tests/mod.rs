@@ -1,7 +1,10 @@
 use crate::database;
 use crate::model;
+use crate::model::AggregatedStatsByContext;
 use crate::server;
+use crate::settings::DBSettings;
 
+use std::sync::Arc;
 use std::{collections::HashMap, env};
 
 use axum::routing::{get, put};
@@ -9,6 +12,7 @@ use axum::Extension;
 use axum::Router;
 use http::Request;
 use http::StatusCode;
+use http_body::Body as HttpBody;
 use hyper::Body;
 use tokio::sync::mpsc;
 
@@ -25,8 +29,15 @@ async fn integration_testing() {
         .route("/report-usage-stats/push", put(server::tests::save_report))
         .route(
             "/aggregated-stats/:day",
-            get(move |day| server::tests::get_aggregated_stats(db_url.clone(), day)),
+            get(server::tests::get_aggregated_stats),
         )
+        .route(
+            "/aggregated-stats/:day/:context",
+            get(server::tests::get_aggregated_stats_by_context),
+        )
+        .with_state(Arc::new(DBSettings {
+            url: db_url.clone(),
+        }))
         .layer(Extension(tx.clone()));
 
     let mut test_payloads = HashMap::new();
@@ -34,6 +45,9 @@ async fn integration_testing() {
     test_payloads.insert("v0.99.2", include_str!("./report-v0.99.2.json"));
     test_payloads.insert("v0.99.4", include_str!("./report-v0.99.4.json"));
     test_payloads.insert("v1.28.0", include_str!("./report-v1.28.0.json"));
+    test_payloads.insert("v1.78.0", include_str!("./report-v1.78.0.json"));
+    test_payloads.insert("v1.85.2", include_str!("./report-v1.85.2.json"));
+    test_payloads.insert("v1.99.0", include_str!("./report-v1.99.0.json"));
 
     for (version, payload) in test_payloads {
         let app = app.clone();
@@ -67,6 +81,9 @@ async fn integration_testing() {
         );
     }
     database::tests::aggregate_stats(&pool).await.unwrap();
+    database::tests::aggregate_stats_by_context(&pool)
+        .await
+        .unwrap();
 
     let date = time::OffsetDateTime::now_local()
         .unwrap_or_else(|_| time::OffsetDateTime::now_utc())
@@ -97,6 +114,42 @@ async fn integration_testing() {
         aggregated_res,
         aggregated_res.body(),
     );
+
+    let uri = format!("/aggregated-stats/{}/test_context", date);
+    let aggregated_context_res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(http::Method::GET)
+                .uri(&uri)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        aggregated_context_res.status(),
+        StatusCode::OK,
+        "testing GET '{}', got response '{:?}' with body '{:?}'",
+        uri,
+        aggregated_context_res,
+        aggregated_context_res.body()
+    );
+
+    let body: AggregatedStatsByContext = serde_json::from_slice(
+        aggregated_context_res
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes()
+            .as_ref(),
+    )
+    .expect("Converting response body to json");
+    assert_eq!(body.server_context, "test_context");
+    assert_eq!(body.daily_active_users, Some(9));
+    assert_eq!(body.monthly_active_users, Some(14));
 }
 
 #[tokio::test]

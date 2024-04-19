@@ -1,7 +1,8 @@
 use anyhow::{Context, Result};
 use clap::ArgMatches;
-pub use model::AggregatedStats;
+pub use model::{AggregatedStats, AggregatedStatsByContext};
 use settings::Settings;
+use std::sync::Arc;
 
 mod database;
 mod model;
@@ -17,7 +18,7 @@ pub async fn run(opts: ArgMatches) -> Result<()> {
     let (tx, rx) = tokio::sync::mpsc::channel::<model::Report>(64);
 
     let server = {
-        let db_settings = settings.database.clone();
+        let db_settings = Arc::new(settings.database.clone());
         let settings = settings.server;
         tokio::spawn(async move {
             let tx = tx.clone();

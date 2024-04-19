@@ -1,0 +1,179 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT * FROM aggregated_stats_by_context WHERE day = $1 AND server_context = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "day",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 1,
+        "name": "server_context",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "total_users",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "total_nonbridged_users",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "total_room_count",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "daily_active_users",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "daily_active_rooms",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "daily_messages",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 8,
+        "name": "daily_sent_messages",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 9,
+        "name": "daily_active_e2ee_rooms",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 10,
+        "name": "daily_e2ee_messages",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 11,
+        "name": "daily_sent_e2ee_messages",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 12,
+        "name": "monthly_active_users",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 13,
+        "name": "r30_users_all",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 14,
+        "name": "r30_users_android",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 15,
+        "name": "r30_users_ios",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 16,
+        "name": "r30_users_electron",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 17,
+        "name": "r30_users_web",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 18,
+        "name": "r30v2_users_all",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 19,
+        "name": "r30v2_users_android",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 20,
+        "name": "r30v2_users_ios",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 21,
+        "name": "r30v2_users_electron",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 22,
+        "name": "r30v2_users_web",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 23,
+        "name": "daily_user_type_native",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 24,
+        "name": "daily_user_type_bridged",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 25,
+        "name": "daily_user_type_guest",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 26,
+        "name": "daily_active_homeservers",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Date",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "95a3290f44f0856ef15c8e113998f20e1553b723fcff8458e24b20eda1a1ff8e"
+}

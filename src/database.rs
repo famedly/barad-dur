@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use sqlx::PgPool;
 use tokio::{sync::mpsc::Receiver, time::interval};
 
-use crate::model::{AggregatedStats, Report};
+use crate::model::{AggregatedStats, AggregatedStatsByContext, Report};
 use crate::settings::DBSettings;
 
 pub async fn aggregate_loop(settings: &DBSettings) {
@@ -13,6 +13,10 @@ pub async fn aggregate_loop(settings: &DBSettings) {
     let interval = &mut interval(std::time::Duration::new(86400, 0));
     loop {
         if let Err(err) = aggregate_stats(&pool).await {
+            log::error!("{:?}", err);
+            process::exit(-1);
+        }
+        if let Err(err) = aggregate_stats_by_context(&pool).await {
             log::error!("{:?}", err);
             process::exit(-1);
         }
@@ -157,9 +161,128 @@ async fn aggregate_stats(pool: &sqlx::PgPool) -> Result<()> {
               homeserver,
               local_timestamp:: DATE,
               local_timestamp DESC
-          ) as pg_sucks
+          ) as _
         GROUP BY
           local_timestamp:: DATE ON CONFLICT (day) DO
+        UPDATE
+        SET
+          total_users = excluded.total_users,
+          total_nonbridged_users = excluded.total_nonbridged_users,
+          total_room_count = excluded.total_room_count,
+          daily_active_users = excluded.daily_active_users,
+          daily_active_rooms = excluded.daily_active_rooms,
+          daily_messages = excluded.daily_messages,
+          daily_sent_messages = excluded.daily_sent_messages,
+          daily_active_e2ee_rooms = excluded.daily_active_e2ee_rooms,
+          daily_e2ee_messages = excluded.daily_e2ee_messages,
+          daily_sent_e2ee_messages = excluded.daily_sent_e2ee_messages,
+          monthly_active_users = excluded.monthly_active_users,
+          r30_users_all = excluded.r30_users_all,
+          r30_users_android = excluded.r30_users_android,
+          r30_users_ios = excluded.r30_users_ios,
+          r30_users_electron = excluded.r30_users_electron,
+          r30_users_web = excluded.r30_users_web,
+          r30v2_users_all = excluded.r30_users_all,
+          r30v2_users_android = excluded.r30_users_android,
+          r30v2_users_ios = excluded.r30_users_ios,
+          r30v2_users_electron = excluded.r30_users_electron,
+          r30v2_users_web = excluded.r30_users_web,
+          daily_user_type_native = excluded.daily_user_type_native,
+          daily_user_type_bridged = excluded.daily_user_type_bridged,
+          daily_user_type_guest = excluded.daily_user_type_guest,
+          daily_active_homeservers = excluded.daily_active_homeservers;"#
+    )
+    .execute(pool)
+    .await
+    .context("could not aggregate stats")?;
+
+    Ok(())
+}
+
+async fn aggregate_stats_by_context(pool: &sqlx::PgPool) -> Result<()> {
+    let _ = sqlx::query!(
+        r#"
+        INSERT INTO
+          aggregated_stats_by_context (
+            day,
+            server_context,
+            total_users,
+            total_nonbridged_users,
+            total_room_count,
+            daily_active_users,
+            daily_active_rooms,
+            daily_messages,
+            daily_sent_messages,
+            daily_active_e2ee_rooms,
+            daily_e2ee_messages,
+            daily_sent_e2ee_messages,
+            monthly_active_users,
+            r30_users_all,
+            r30_users_android,
+            r30_users_ios,
+            r30_users_electron,
+            r30_users_web,
+            r30v2_users_all,
+            r30v2_users_android,
+            r30v2_users_ios,
+            r30v2_users_electron,
+            r30v2_users_web,
+            daily_user_type_native,
+            daily_user_type_bridged,
+            daily_user_type_guest,
+            daily_active_homeservers
+          )
+        SELECT
+          local_timestamp:: DATE,
+          server_context,
+          SUM(total_users),
+          SUM(total_nonbridged_users),
+          SUM(total_room_count),
+          SUM(daily_active_users),
+          SUM(daily_active_rooms),
+          SUM(daily_messages),
+          SUM(daily_sent_messages),
+          SUM(daily_active_e2ee_rooms),
+          SUM(daily_e2ee_messages),
+          SUM(daily_sent_e2ee_messages),
+          SUM(monthly_active_users),
+          SUM(r30_users_all),
+          SUM(r30_users_android),
+          SUM(r30_users_ios),
+          SUM(r30_users_electron),
+          SUM(r30_users_web),
+          SUM(r30v2_users_all),
+          SUM(r30v2_users_android),
+          SUM(r30v2_users_ios),
+          SUM(r30v2_users_electron),
+          SUM(r30v2_users_web),
+          SUM(daily_user_type_native),
+          SUM(daily_user_type_bridged),
+          SUM(daily_user_type_guest),
+          COUNT(homeserver)
+        FROM
+          (
+            SELECT
+              DISTINCT ON (homeserver, local_timestamp:: DATE) *
+            FROM
+              reports
+            WHERE
+              local_timestamp:: DATE >= (
+                SELECT
+                  COALESCE(MAX(day), 'EPOCH':: DATE)
+                FROM
+                  aggregated_stats
+              )
+            ORDER BY
+              homeserver,
+              local_timestamp:: DATE,
+              local_timestamp DESC
+          ) as _
+        WHERE server_context IS NOT NULL
+        GROUP BY
+          server_context,
+          local_timestamp:: DATE
+        ON CONFLICT (day, server_context) DO
         UPDATE
         SET
           total_users = excluded.total_users,
@@ -204,6 +327,22 @@ pub async fn get_aggregated_stats(
         AggregatedStats,
         "SELECT * FROM aggregated_stats WHERE day = $1",
         day
+    )
+    .fetch_optional(&pool)
+    .await?)
+}
+
+pub async fn get_aggregated_stats_by_context(
+    db_settings: &DBSettings,
+    day: sqlx::types::time::Date,
+    server_context: String,
+) -> Result<Option<AggregatedStatsByContext>> {
+    let pool = get_db_pool(db_settings).await;
+    Ok(sqlx::query_as!(
+        AggregatedStatsByContext,
+        "SELECT * FROM aggregated_stats_by_context WHERE day = $1 AND server_context = $2",
+        day,
+        server_context
     )
     .fetch_optional(&pool)
     .await?)
@@ -359,6 +498,10 @@ pub mod tests {
 
     pub async fn aggregate_stats(pool: &sqlx::PgPool) -> Result<()> {
         super::aggregate_stats(pool).await
+    }
+
+    pub async fn aggregate_stats_by_context(pool: &sqlx::PgPool) -> Result<()> {
+        super::aggregate_stats_by_context(pool).await
     }
 
     pub async fn save_report(pool: &sqlx::PgPool, report: &Report) -> Result<i64> {
