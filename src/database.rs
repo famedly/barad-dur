@@ -10,7 +10,7 @@ use crate::settings::DBSettings;
 pub async fn aggregate_loop(settings: &DBSettings) {
     let pool = get_db_pool(settings).await;
 
-    let interval = &mut interval(std::time::Duration::new(86400, 0));
+    let interval = &mut interval(std::time::Duration::new(3600, 0));
     loop {
         if let Err(err) = aggregate_stats(&pool).await {
             log::error!("{:?}", err);
