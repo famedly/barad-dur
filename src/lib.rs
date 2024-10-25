@@ -12,8 +12,8 @@ mod settings;
 mod tests;
 
 pub async fn run(opts: ArgMatches) -> Result<()> {
-    let settings =
-        Settings::load(opts.get_one::<String>("config").unwrap()).context("can't load config.")?;
+    let settings = Settings::load(opts.get_one::<String>("config").expect("Config string"))
+        .context("can't load config.")?;
 
     let (tx, rx) = tokio::sync::mpsc::channel::<model::Report>(64);
 
@@ -22,7 +22,9 @@ pub async fn run(opts: ArgMatches) -> Result<()> {
         let settings = settings.server;
         tokio::spawn(async move {
             let tx = tx.clone();
-            server::run_server(settings, db_settings, tx).await.unwrap();
+            server::run_server(settings, db_settings, tx)
+                .await
+                .expect("Running server");
         })
     };
 

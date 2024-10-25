@@ -19,10 +19,11 @@ use tokio::sync::mpsc;
 use tower::ServiceExt; // for `app.oneshot()`
 
 #[tokio::test]
+#[allow(clippy::too_many_lines)]
 async fn integration_testing() {
     // crate::setup_logging("debug");
-    let db_url = env::var("DATABASE_URL").unwrap();
-    let pool = sqlx::PgPool::connect(&db_url).await.unwrap();
+    let db_url = env::var("DATABASE_URL").expect("database URL");
+    let pool = sqlx::PgPool::connect(&db_url).await.expect("DB connection");
     let (tx, mut rx) = mpsc::channel::<model::Report>(64);
 
     let app = Router::new()
@@ -59,7 +60,7 @@ async fn integration_testing() {
                     .uri("/report-usage-stats/push")
                     .header(http::header::CONTENT_TYPE, "application/json")
                     .body(Body::from(payload))
-                    .unwrap(),
+                    .expect("building request"),
             )
             .await
             .unwrap();
@@ -73,17 +74,23 @@ async fn integration_testing() {
             resp.body(),
         );
 
-        let report = rx.recv().await.unwrap();
-        let id = database::tests::save_report(&pool, &report).await.unwrap();
+        let report = rx.recv().await.expect("receive report");
+        let id = database::tests::save_report(&pool, &report)
+            .await
+            .expect("save report");
         assert_eq!(
             report,
-            database::tests::get_report_by_id(&pool, id).await.unwrap()
+            database::tests::get_report_by_id(&pool, id)
+                .await
+                .expect("get report by id")
         );
     }
-    database::tests::aggregate_stats(&pool).await.unwrap();
+    database::tests::aggregate_stats(&pool)
+        .await
+        .expect("aggregate stats");
     database::tests::aggregate_stats_by_context(&pool)
         .await
-        .unwrap();
+        .expect("aggregate stats by context");
 
     let date = time::OffsetDateTime::now_local()
         .unwrap_or_else(|_| time::OffsetDateTime::now_utc())
@@ -91,7 +98,7 @@ async fn integration_testing() {
 
     let date = date
         .format(&time::format_description::well_known::Iso8601::DATE)
-        .unwrap();
+        .expect("format date");
     let uri = format!("/aggregated-stats/{}", date);
 
     let aggregated_res = app
@@ -101,7 +108,7 @@ async fn integration_testing() {
                 .method(http::Method::GET)
                 .uri(&uri)
                 .body(Body::empty())
-                .unwrap(),
+                .expect("build request"),
         )
         .await
         .unwrap();
@@ -123,7 +130,7 @@ async fn integration_testing() {
                 .method(http::Method::GET)
                 .uri(&uri)
                 .body(Body::empty())
-                .unwrap(),
+                .expect("build request"),
         )
         .await
         .unwrap();
@@ -142,7 +149,7 @@ async fn integration_testing() {
             .into_body()
             .collect()
             .await
-            .unwrap()
+            .expect("collect body")
             .to_bytes()
             .as_ref(),
     )
@@ -161,7 +168,7 @@ async fn test_healthcheck() {
                 .method(http::Method::GET)
                 .uri("/health")
                 .body(Body::empty())
-                .unwrap(),
+                .expect("build request"),
         )
         .await
         .unwrap();

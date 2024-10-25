@@ -51,7 +51,7 @@ pub async fn insert_reports_loop(settings: &DBSettings, mut rx: Receiver<Report>
 }
 
 async fn connect_pg(url: &str) -> PgPool {
-    let pool = match sqlx::PgPool::connect(url)
+    let pool = match PgPool::connect(url)
         .await
         .context("failed connecting to PostgreSQL server.")
     {
@@ -78,14 +78,15 @@ async fn get_db_pool(DBSettings { url }: &DBSettings) -> PgPool {
     use once_cell::sync::OnceCell;
     static PG_POOL_CELL: OnceCell<PgPool> = OnceCell::new();
 
-    PG_POOL_CELL.get().map(PgPool::clone).unwrap_or({
+    PG_POOL_CELL.get().cloned().unwrap_or({
         let pool = connect_pg(url).await;
         let _ = PG_POOL_CELL.set(pool.clone());
         pool
     })
 }
 
-async fn aggregate_stats(pool: &sqlx::PgPool) -> Result<()> {
+#[allow(clippy::too_many_lines)]
+async fn aggregate_stats(pool: &PgPool) -> Result<()> {
     let _ = sqlx::query!(
         r#"
         INSERT INTO
@@ -199,7 +200,8 @@ async fn aggregate_stats(pool: &sqlx::PgPool) -> Result<()> {
     Ok(())
 }
 
-async fn aggregate_stats_by_context(pool: &sqlx::PgPool) -> Result<()> {
+#[allow(clippy::too_many_lines)]
+async fn aggregate_stats_by_context(pool: &PgPool) -> Result<()> {
     let _ = sqlx::query!(
         r#"
         INSERT INTO
@@ -348,7 +350,8 @@ pub async fn get_aggregated_stats_by_context(
     .await?)
 }
 
-async fn save_report(pool: &sqlx::PgPool, report: &Report) -> Result<i64> {
+#[allow(clippy::too_many_lines)]
+async fn save_report(pool: &PgPool, report: &Report) -> Result<i64> {
     #[derive(sqlx::FromRow)]
     struct Id {
         id: i64,

@@ -5,7 +5,7 @@ use clap::{Arg, Command};
 use time::macros::format_description;
 
 fn setup_logging(level: &str) -> Result<()> {
-    let level = log::LevelFilter::from_str(level).unwrap();
+    let level = log::LevelFilter::from_str(level).expect("Log level parsing");
 
     fern::Dispatch::new()
         .format(|out, message, record| {
@@ -16,11 +16,11 @@ fn setup_logging(level: &str) -> Result<()> {
                     .format(format_description!(
                         "[year]-[month]-[day] [hour]:[minute]:[second]"
                     ))
-                    .unwrap(),
+                    .expect("Formatting"),
                 record.level(),
                 record.target(),
                 message
-            ))
+            ));
         })
         .level(level)
         //This line is to avoid being flooded with event loop messages
@@ -53,7 +53,7 @@ async fn main() -> Result<()> {
         ])
         .get_matches();
 
-    setup_logging(opts.get_one::<String>("log_level").unwrap())?;
+    setup_logging(opts.get_one::<String>("log_level").expect("Log level"))?;
 
     barad_dur::run(opts).await?;
     Ok(())

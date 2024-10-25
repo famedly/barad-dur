@@ -37,15 +37,17 @@ pub async fn run_server(
     Ok(())
 }
 
-// Returns 200 OK for health checking
+/// Returns 200 OK for health checking
 async fn health_check() -> impl IntoResponse {
     (StatusCode::OK, "OK")
 }
 
+/// X-Forwarded-For header
 pub struct XForwardedFor(IpAddr);
 
 impl Header for XForwardedFor {
-    fn name() -> &'static axum::headers::HeaderName {
+    fn name() -> &'static HeaderName {
+        /// X-Forwarded-For
         static NAME: HeaderName = HeaderName::from_static("x-forwarded-for");
         &NAME
     }
@@ -53,7 +55,7 @@ impl Header for XForwardedFor {
     fn decode<'i, I>(values: &mut I) -> Result<Self, axum::headers::Error>
     where
         Self: Sized,
-        I: Iterator<Item = &'i http::HeaderValue>,
+        I: Iterator<Item = &'i HeaderValue>,
     {
         let value = values.next().ok_or_else(axum::headers::Error::invalid)?;
         Ok(Self(
@@ -65,10 +67,11 @@ impl Header for XForwardedFor {
         ))
     }
 
-    fn encode<E: Extend<http::HeaderValue>>(&self, values: &mut E) {
+    fn encode<E: Extend<HeaderValue>>(&self, values: &mut E) {
+        #[allow(clippy::expect_used)]
         let value = HeaderValue::from_str(&self.0.to_string())
             .expect("IP addresses are always safe header values");
-        values.extend(std::iter::once(value))
+        values.extend(std::iter::once(value));
     }
 }
 
@@ -103,11 +106,11 @@ async fn get_aggregated_stats_by_context(
 }
 
 async fn save_report(
-    tx: extract::Extension<mpsc::Sender<model::Report>>,
+    tx: Extension<mpsc::Sender<model::Report>>,
     addr: Option<extract::ConnectInfo<SocketAddr>>,
     forwarded_addr: Option<TypedHeader<XForwardedFor>>,
     user_agent: Option<TypedHeader<UserAgent>>,
-    report: extract::Json<model::Report>,
+    report: Json<model::Report>,
 ) -> StatusCode {
     let mut report = report;
 
@@ -115,8 +118,8 @@ async fn save_report(
         let ts = time::OffsetDateTime::now_utc();
         // Dropping some precision here, because postgres doesn't store it anyway, which causes
         // tests to fail because the value coming out was less precise than the value going in
-        ts.replace_millisecond((ts.microsecond() / 1000).try_into().unwrap())
-            .unwrap()
+        ts.replace_millisecond((ts.microsecond() / 1000).try_into().expect("ms conversion"))
+            .expect("replace millisecond")
     });
     report.remote_addr = addr.map(|addr| addr.0.to_string());
     report.forwarded_for =
@@ -154,7 +157,7 @@ pub mod tests {
         addr: Option<extract::ConnectInfo<SocketAddr>>,
         forwarded_addr: Option<TypedHeader<XForwardedFor>>,
         user_agent: Option<TypedHeader<UserAgent>>,
-        report: extract::Json<model::Report>,
+        report: Json<model::Report>,
     ) -> StatusCode {
         super::save_report(tx, addr, forwarded_addr, user_agent, report).await
     }
