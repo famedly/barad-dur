@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use config::{Config, File};
+use config::{Config, Environment, File};
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug, Clone)]
@@ -23,7 +23,12 @@ impl Settings {
         Ok(Config::builder()
             .set_default("server.host", "[::]:8080")?
             .set_default("log.level", "warn")?
-            .add_source(File::with_name(config))
+            .add_source(
+                Environment::with_prefix("BDR")
+                    .prefix_separator("__")
+                    .separator("__"),
+            )
+            .add_source(File::with_name(config).required(false))
             .build()
             .context("can't load config")?
             .try_deserialize()?)
