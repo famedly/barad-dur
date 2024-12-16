@@ -24,7 +24,7 @@ impl Settings {
             .set_default("server.host", "[::]:8080")?
             .set_default("log.level", "warn")?
             .add_source(
-                Environment::with_prefix("BDR")
+                Environment::with_prefix("FAMEDLY_BDR")
                     .prefix_separator("__")
                     .separator("__"),
             )

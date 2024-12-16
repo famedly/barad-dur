@@ -22,6 +22,8 @@ RUN apk add --no-cache \
 # ensure the UTC timezone is set
 	ln -fs /usr/share/zoneinfo/Etc/UTC /etc/localtime
 
+RUN chmod -R g+rw /opt/barad-dur && chgrp -R 0 /opt/barad-dur
+
 WORKDIR /opt/barad-dur
 COPY --from=builder /app/target/release/barad-dur /usr/local/bin/barad-dur
 COPY --from=builder /app/migrations /opt/barad-dur/migrations
