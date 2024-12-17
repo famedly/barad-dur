@@ -1,14 +1,21 @@
 [package]
 name = "barad-dur"
-version = "0.3.2"
-authors = ["Shekhinah Memmel <she@khinah.xyz>", "Jan Christian Grünhage <jan.christian@gruenhage.xyz>"]
+version = "0.3.3"
+authors = [
+    "Shekhinah Memmel <she@khinah.xyz>",
+    "Jan Christian Grünhage <jan.christian@gruenhage.xyz>",
+]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 anyhow = "1.0.68"
-axum = { version = "0.6.20", features = [ "headers", "tokio" ] }
-time = { version = "0.3.36", features = [ "serde", "local-offset", "serde-human-readable" ] }
+axum = { version = "0.6.20", features = ["headers", "tokio"] }
+time = { version = "0.3.36", features = [
+    "serde",
+    "local-offset",
+    "serde-human-readable",
+] }
 clap = "4.5.20"
 config = "0.14.1"
 fern = "0.6.1"
@@ -17,10 +24,19 @@ http-body = "0.4.6"
 hyper = "0.14.31"
 log = "0.4.17"
 once_cell = "1.16.0"
-serde = { version = "1.0.151", features = [ "derive" ] }
+serde = { version = "1.0.151", features = ["derive"] }
 serde_json = "1.0.91"
-sqlx = { version = "0.8.2", features = [ "runtime-tokio", "tls-rustls", "postgres", "macros", "migrate", "time", "json", "bigdecimal" ] }
-tokio = { version = "1.41.0", features = [ "time", "macros", "rt-multi-thread" ] }
+sqlx = { version = "0.8.2", features = [
+    "runtime-tokio",
+    "tls-rustls",
+    "postgres",
+    "macros",
+    "migrate",
+    "time",
+    "json",
+    "bigdecimal",
+] }
+tokio = { version = "1.41.0", features = ["time", "macros", "rt-multi-thread"] }
 
 [dev-dependencies]
 tower = "0.4.13"
