@@ -38,8 +38,13 @@ pub async fn run_server(
 }
 
 /// Returns 200 OK for health checking
-async fn health_check() -> impl IntoResponse {
-    (StatusCode::OK, "OK")
+async fn health_check(State(db_settings): State<Arc<DBSettings>>) -> impl IntoResponse {
+    if let Err(e) = crate::database::connect_pg_gracefully(&db_settings.url).await {
+        log::error!("Database connection failed during health check: {e:?}");
+        StatusCode::INTERNAL_SERVER_ERROR
+    } else {
+        StatusCode::OK
+    }
 }
 
 /// X-Forwarded-For header
@@ -162,8 +167,8 @@ pub mod tests {
         super::save_report(tx, addr, forwarded_addr, user_agent, report).await
     }
 
-    pub async fn health_check() -> impl IntoResponse {
-        super::health_check().await
+    pub async fn health_check(db_settings: State<Arc<DBSettings>>) -> impl IntoResponse {
+        super::health_check(db_settings).await
     }
 
     pub async fn get_aggregated_stats(

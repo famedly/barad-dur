@@ -50,11 +50,14 @@ pub async fn insert_reports_loop(settings: &DBSettings, mut rx: Receiver<Report>
     }
 }
 
-async fn connect_pg(url: &str) -> PgPool {
-    let pool = match PgPool::connect(url)
+pub async fn connect_pg_gracefully(url: &str) -> Result<PgPool> {
+    PgPool::connect(url)
         .await
         .context("failed connecting to PostgreSQL server.")
-    {
+}
+
+async fn connect_pg(url: &str) -> PgPool {
+    let pool = match connect_pg_gracefully(url).await {
         Ok(pool) => pool,
         Err(err) => {
             log::error!("{:?}", err);
@@ -74,7 +77,7 @@ async fn connect_pg(url: &str) -> PgPool {
     pool
 }
 
-async fn get_db_pool(DBSettings { url }: &DBSettings) -> PgPool {
+pub async fn get_db_pool(DBSettings { url }: &DBSettings) -> PgPool {
     use once_cell::sync::OnceCell;
     static PG_POOL_CELL: OnceCell<PgPool> = OnceCell::new();
 

@@ -161,7 +161,14 @@ async fn integration_testing() {
 
 #[tokio::test]
 async fn test_healthcheck() {
-    let app = || Router::new().route("/health", get(server::tests::health_check));
+    let db_url = env::var("DATABASE_URL").expect("database URL");
+    let app = || {
+        Router::new()
+            .route("/health", get(server::tests::health_check))
+            .with_state(Arc::new(DBSettings {
+                url: db_url.clone(),
+            }))
+    };
     let resp = app()
         .oneshot(
             Request::builder()
@@ -176,6 +183,36 @@ async fn test_healthcheck() {
     assert_eq!(
         resp.status(),
         StatusCode::OK,
+        "testing GET '/health', got response {:?} with body {:?}",
+        resp,
+        resp.body(),
+    );
+}
+
+#[tokio::test]
+async fn test_healthcheck_no_db() {
+    let db_url = "http://example.invalid".to_owned();
+    let app = || {
+        Router::new()
+            .route("/health", get(server::tests::health_check))
+            .with_state(Arc::new(DBSettings {
+                url: db_url.clone(),
+            }))
+    };
+    let resp = app()
+        .oneshot(
+            Request::builder()
+                .method(http::Method::GET)
+                .uri("/health")
+                .body(Body::empty())
+                .expect("build request"),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        resp.status(),
+        StatusCode::INTERNAL_SERVER_ERROR,
         "testing GET '/health', got response {:?} with body {:?}",
         resp,
         resp.body(),
