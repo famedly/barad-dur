@@ -6,6 +6,13 @@ The format is based on [Keep a
 Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.4] - 2025-05-09
+
+### Features
+
+- The healthcheck endpoint now checks whether the database can be
+  connected to. If not, the check fails.
+
 ## [0.3.3] - 2024-12-17
 
 -  feat(dockerfile): Make workdir read/writable by root group for k8s

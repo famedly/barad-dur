@@ -1,6 +1,6 @@
 [package]
 name = "barad-dur"
-version = "0.3.3"
+version = "0.3.4"
 authors = [
     "Shekhinah Memmel <she@khinah.xyz>",
     "Jan Christian Grünhage <jan.christian@gruenhage.xyz>",
