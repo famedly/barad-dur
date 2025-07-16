@@ -119,13 +119,16 @@ async fn save_report(
 ) -> StatusCode {
     let mut report = report;
 
-    report.local_timestamp = Some({
-        let ts = time::OffsetDateTime::now_utc();
-        // Dropping some precision here, because postgres doesn't store it anyway, which causes
-        // tests to fail because the value coming out was less precise than the value going in
-        ts.replace_millisecond((ts.microsecond() / 1000).try_into().expect("ms conversion"))
-            .expect("replace millisecond")
-    });
+    // for tests, make it possible to not always set the local timestamp
+    if report.local_timestamp.is_none() {
+        report.local_timestamp = Some({
+            let ts = time::OffsetDateTime::now_utc();
+            // Dropping some precision here, because postgres doesn't store it anyway, which causes
+            // tests to fail because the value coming out was less precise than the value going in
+            ts.replace_millisecond((ts.microsecond() / 1000).try_into().expect("ms conversion"))
+                .expect("replace millisecond")
+        });
+    }
     report.remote_addr = addr.map(|addr| addr.0.to_string());
     report.forwarded_for =
         forwarded_addr.map(|TypedHeader(forwarded_addr)| forwarded_addr.0.to_string());

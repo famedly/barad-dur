@@ -137,6 +137,16 @@
         "ordinal": 26,
         "name": "daily_active_homeservers",
         "type_info": "Int8"
+      },
+      {
+        "ordinal": 27,
+        "name": "total_messages",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 28,
+        "name": "total_e2ee_messages",
+        "type_info": "Int8"
       }
     ],
     "parameters": {
@@ -148,6 +158,8 @@
     "nullable": [
       false,
       false,
+      true,
+      true,
       true,
       true,
       true,

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n          WITH totals AS (\n              SELECT\n                  day,\n                  SUM(daily_messages) OVER (\n                      ORDER BY day\n                      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n                  ) AS total_messages,\n                  SUM(daily_e2ee_messages) OVER (\n                      ORDER BY day\n                      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n                  ) AS total_e2ee_messages\n              FROM aggregated_stats\n          )\n          UPDATE aggregated_stats t\n          SET\n              total_messages = totals.total_messages,\n              total_e2ee_messages = totals.total_e2ee_messages\n          FROM totals\n          WHERE t.day = totals.day AND t.day = $1;\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Date"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c549acb6a34c0c4e3cc3f32ef6222e0fcef37b4ee3e3df38c69a328baaa94d3b"
+}

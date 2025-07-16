@@ -12,11 +12,12 @@ pub async fn aggregate_loop(settings: &DBSettings) {
 
     let interval = &mut interval(std::time::Duration::new(3600, 0));
     loop {
-        if let Err(err) = aggregate_stats(&pool).await {
+        let today = time::OffsetDateTime::now_utc().date();
+        if let Err(err) = aggregate_stats(&pool, today).await {
             log::error!("{:?}", err);
             process::exit(-1);
         }
-        if let Err(err) = aggregate_stats_by_context(&pool).await {
+        if let Err(err) = aggregate_stats_by_context(&pool, today).await {
             log::error!("{:?}", err);
             process::exit(-1);
         }
@@ -89,7 +90,7 @@ pub async fn get_db_pool(DBSettings { url }: &DBSettings) -> PgPool {
 }
 
 #[allow(clippy::too_many_lines)]
-async fn aggregate_stats(pool: &PgPool) -> Result<()> {
+async fn aggregate_stats(pool: &PgPool, day: sqlx::types::time::Date) -> Result<()> {
     let _ = sqlx::query!(
         r#"
         INSERT INTO
@@ -155,12 +156,7 @@ async fn aggregate_stats(pool: &PgPool) -> Result<()> {
             FROM
               reports
             WHERE
-              local_timestamp:: DATE >= (
-                SELECT
-                  COALESCE(MAX(day), 'EPOCH':: DATE)
-                FROM
-                  aggregated_stats
-              )
+              local_timestamp:: DATE = $1
             ORDER BY
               homeserver,
               local_timestamp:: DATE,
@@ -194,17 +190,46 @@ async fn aggregate_stats(pool: &PgPool) -> Result<()> {
           daily_user_type_native = excluded.daily_user_type_native,
           daily_user_type_bridged = excluded.daily_user_type_bridged,
           daily_user_type_guest = excluded.daily_user_type_guest,
-          daily_active_homeservers = excluded.daily_active_homeservers;"#
+          daily_active_homeservers = excluded.daily_active_homeservers;"#,
+        day
     )
     .execute(pool)
     .await
     .context("could not aggregate stats")?;
 
+    let _ = sqlx::query!(
+        r#"
+          WITH totals AS (
+              SELECT
+                  day,
+                  SUM(daily_messages) OVER (
+                      ORDER BY day
+                      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                  ) AS total_messages,
+                  SUM(daily_e2ee_messages) OVER (
+                      ORDER BY day
+                      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                  ) AS total_e2ee_messages
+              FROM aggregated_stats
+          )
+          UPDATE aggregated_stats t
+          SET
+              total_messages = totals.total_messages,
+              total_e2ee_messages = totals.total_e2ee_messages
+          FROM totals
+          WHERE t.day = totals.day AND t.day = $1;
+"#,
+        day
+    )
+    .execute(pool)
+    .await
+    .context("could not add total_messages and total_e2ee_messages to aggregated_stats")?;
+
     Ok(())
 }
 
 #[allow(clippy::too_many_lines)]
-async fn aggregate_stats_by_context(pool: &PgPool) -> Result<()> {
+async fn aggregate_stats_by_context(pool: &PgPool, day: sqlx::types::time::Date) -> Result<()> {
     let _ = sqlx::query!(
         r#"
         INSERT INTO
@@ -272,12 +297,7 @@ async fn aggregate_stats_by_context(pool: &PgPool) -> Result<()> {
             FROM
               reports
             WHERE
-              local_timestamp:: DATE >= (
-                SELECT
-                  COALESCE(MAX(day), 'EPOCH':: DATE)
-                FROM
-                  aggregated_stats
-              )
+              local_timestamp:: DATE = $1
             ORDER BY
               homeserver,
               local_timestamp:: DATE,
@@ -314,11 +334,45 @@ async fn aggregate_stats_by_context(pool: &PgPool) -> Result<()> {
           daily_user_type_native = excluded.daily_user_type_native,
           daily_user_type_bridged = excluded.daily_user_type_bridged,
           daily_user_type_guest = excluded.daily_user_type_guest,
-          daily_active_homeservers = excluded.daily_active_homeservers;"#
+          daily_active_homeservers = excluded.daily_active_homeservers;"#,
+        day
     )
     .execute(pool)
     .await
     .context("could not aggregate stats")?;
+
+    let _ = sqlx::query!(
+        r#"
+          WITH totals AS (
+              SELECT
+                  day,
+                  server_context,
+                  SUM(daily_messages) OVER (
+                      PARTITION BY server_context
+                      ORDER BY day
+                      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                  ) AS total_messages,
+                  SUM(daily_e2ee_messages) OVER (
+                      PARTITION BY server_context
+                      ORDER BY day
+                      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                  ) AS total_e2ee_messages
+              FROM aggregated_stats_by_context
+          )
+          UPDATE aggregated_stats_by_context t
+          SET
+              total_messages = totals.total_messages,
+              total_e2ee_messages = totals.total_e2ee_messages
+          FROM totals
+          WHERE t.day = totals.day AND t.server_context = totals.server_context AND t.day = $1;
+"#,
+        day
+    )
+    .execute(pool)
+    .await
+    .context(
+        "could not add total_messages and total_e2ee_messages to aggregated_stats_by_context",
+    )?;
 
     Ok(())
 }
@@ -502,12 +556,15 @@ pub mod tests {
     use crate::model::Report;
     use anyhow::Result;
 
-    pub async fn aggregate_stats(pool: &sqlx::PgPool) -> Result<()> {
-        super::aggregate_stats(pool).await
+    pub async fn aggregate_stats(pool: &sqlx::PgPool, day: sqlx::types::time::Date) -> Result<()> {
+        super::aggregate_stats(pool, day).await
     }
 
-    pub async fn aggregate_stats_by_context(pool: &sqlx::PgPool) -> Result<()> {
-        super::aggregate_stats_by_context(pool).await
+    pub async fn aggregate_stats_by_context(
+        pool: &sqlx::PgPool,
+        day: sqlx::types::time::Date,
+    ) -> Result<()> {
+        super::aggregate_stats_by_context(pool, day).await
     }
 
     pub async fn save_report(pool: &sqlx::PgPool, report: &Report) -> Result<i64> {

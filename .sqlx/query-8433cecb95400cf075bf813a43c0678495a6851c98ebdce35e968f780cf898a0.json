@@ -1,256 +1,256 @@
 {
-  "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n              homeserver,\n              local_timestamp,\n              remote_timestamp,\n              remote_addr,\n              forwarded_for,\n              uptime_seconds,\n              total_users,\n              total_nonbridged_users,\n              total_room_count,\n              daily_active_users,\n              daily_active_rooms,\n              daily_messages,\n              daily_sent_messages,\n              daily_active_e2ee_rooms,\n              daily_e2ee_messages,\n              daily_sent_e2ee_messages,\n              monthly_active_users,\n              r30_users_all,\n              r30_users_android,\n              r30_users_ios,\n              r30_users_electron,\n              r30_users_web,\n              r30v2_users_all,\n              r30v2_users_android,\n              r30v2_users_ios,\n              r30v2_users_electron,\n              r30v2_users_web,\n              cpu_average,\n              memory_rss,\n              cache_factor,\n              event_cache_size,\n              user_agent,\n              daily_user_type_native,\n              daily_user_type_bridged,\n              daily_user_type_guest,\n              python_version,\n              database_engine,\n              database_server_version,\n              server_context,\n              log_level\n            FROM\n              reports\n            WHERE\n              id = $1",
-  "describe": {
-    "columns": [
-      {
-        "ordinal": 0,
-        "name": "homeserver",
-        "type_info": "Text"
-      },
-      {
-        "ordinal": 1,
-        "name": "local_timestamp",
-        "type_info": "Timestamptz"
-      },
-      {
-        "ordinal": 2,
-        "name": "remote_timestamp",
-        "type_info": "Timestamptz"
-      },
-      {
-        "ordinal": 3,
-        "name": "remote_addr",
-        "type_info": "Text"
-      },
-      {
-        "ordinal": 4,
-        "name": "forwarded_for",
-        "type_info": "Text"
-      },
-      {
-        "ordinal": 5,
-        "name": "uptime_seconds",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 6,
-        "name": "total_users",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 7,
-        "name": "total_nonbridged_users",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 8,
-        "name": "total_room_count",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 9,
-        "name": "daily_active_users",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 10,
-        "name": "daily_active_rooms",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 11,
-        "name": "daily_messages",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 12,
-        "name": "daily_sent_messages",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 13,
-        "name": "daily_active_e2ee_rooms",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 14,
-        "name": "daily_e2ee_messages",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 15,
-        "name": "daily_sent_e2ee_messages",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 16,
-        "name": "monthly_active_users",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 17,
-        "name": "r30_users_all",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 18,
-        "name": "r30_users_android",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 19,
-        "name": "r30_users_ios",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 20,
-        "name": "r30_users_electron",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 21,
-        "name": "r30_users_web",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 22,
-        "name": "r30v2_users_all",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 23,
-        "name": "r30v2_users_android",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 24,
-        "name": "r30v2_users_ios",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 25,
-        "name": "r30v2_users_electron",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 26,
-        "name": "r30v2_users_web",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 27,
-        "name": "cpu_average",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 28,
-        "name": "memory_rss",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 29,
-        "name": "cache_factor",
-        "type_info": "Float8"
-      },
-      {
-        "ordinal": 30,
-        "name": "event_cache_size",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 31,
-        "name": "user_agent",
-        "type_info": "Text"
-      },
-      {
-        "ordinal": 32,
-        "name": "daily_user_type_native",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 33,
-        "name": "daily_user_type_bridged",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 34,
-        "name": "daily_user_type_guest",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 35,
-        "name": "python_version",
-        "type_info": "Text"
-      },
-      {
-        "ordinal": 36,
-        "name": "database_engine",
-        "type_info": "Text"
-      },
-      {
-        "ordinal": 37,
-        "name": "database_server_version",
-        "type_info": "Text"
-      },
-      {
-        "ordinal": 38,
-        "name": "server_context",
-        "type_info": "Text"
-      },
-      {
-        "ordinal": 39,
-        "name": "log_level",
-        "type_info": "Text"
-      }
-    ],
-    "parameters": {
-      "Left": [
-        "Int8"
-      ]
+    "db_name": "PostgreSQL",
+    "query": "\n            SELECT\n              homeserver,\n              local_timestamp,\n              remote_timestamp,\n              remote_addr,\n              forwarded_for,\n              uptime_seconds,\n              total_users,\n              total_nonbridged_users,\n              total_room_count,\n              daily_active_users,\n              daily_active_rooms,\n              daily_messages,\n              daily_sent_messages,\n              daily_active_e2ee_rooms,\n              daily_e2ee_messages,\n              daily_sent_e2ee_messages,\n              monthly_active_users,\n              r30_users_all,\n              r30_users_android,\n              r30_users_ios,\n              r30_users_electron,\n              r30_users_web,\n              r30v2_users_all,\n              r30v2_users_android,\n              r30v2_users_ios,\n              r30v2_users_electron,\n              r30v2_users_web,\n              cpu_average,\n              memory_rss,\n              cache_factor,\n              event_cache_size,\n              user_agent,\n              daily_user_type_native,\n              daily_user_type_bridged,\n              daily_user_type_guest,\n              python_version,\n              database_engine,\n              database_server_version,\n              server_context,\n              log_level\n            FROM\n              reports\n            WHERE\n              id = $1",
+    "describe": {
+        "columns": [
+            {
+                "ordinal": 0,
+                "name": "homeserver",
+                "type_info": "Text"
+            },
+            {
+                "ordinal": 1,
+                "name": "local_timestamp",
+                "type_info": "Timestamptz"
+            },
+            {
+                "ordinal": 2,
+                "name": "remote_timestamp",
+                "type_info": "Timestamptz"
+            },
+            {
+                "ordinal": 3,
+                "name": "remote_addr",
+                "type_info": "Text"
+            },
+            {
+                "ordinal": 4,
+                "name": "forwarded_for",
+                "type_info": "Text"
+            },
+            {
+                "ordinal": 5,
+                "name": "uptime_seconds",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 6,
+                "name": "total_users",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 7,
+                "name": "total_nonbridged_users",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 8,
+                "name": "total_room_count",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 9,
+                "name": "daily_active_users",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 10,
+                "name": "daily_active_rooms",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 11,
+                "name": "daily_messages",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 12,
+                "name": "daily_sent_messages",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 13,
+                "name": "daily_active_e2ee_rooms",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 14,
+                "name": "daily_e2ee_messages",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 15,
+                "name": "daily_sent_e2ee_messages",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 16,
+                "name": "monthly_active_users",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 17,
+                "name": "r30_users_all",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 18,
+                "name": "r30_users_android",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 19,
+                "name": "r30_users_ios",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 20,
+                "name": "r30_users_electron",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 21,
+                "name": "r30_users_web",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 22,
+                "name": "r30v2_users_all",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 23,
+                "name": "r30v2_users_android",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 24,
+                "name": "r30v2_users_ios",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 25,
+                "name": "r30v2_users_electron",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 26,
+                "name": "r30v2_users_web",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 27,
+                "name": "cpu_average",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 28,
+                "name": "memory_rss",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 29,
+                "name": "cache_factor",
+                "type_info": "Float8"
+            },
+            {
+                "ordinal": 30,
+                "name": "event_cache_size",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 31,
+                "name": "user_agent",
+                "type_info": "Text"
+            },
+            {
+                "ordinal": 32,
+                "name": "daily_user_type_native",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 33,
+                "name": "daily_user_type_bridged",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 34,
+                "name": "daily_user_type_guest",
+                "type_info": "Int8"
+            },
+            {
+                "ordinal": 35,
+                "name": "python_version",
+                "type_info": "Text"
+            },
+            {
+                "ordinal": 36,
+                "name": "database_engine",
+                "type_info": "Text"
+            },
+            {
+                "ordinal": 37,
+                "name": "database_server_version",
+                "type_info": "Text"
+            },
+            {
+                "ordinal": 38,
+                "name": "server_context",
+                "type_info": "Text"
+            },
+            {
+                "ordinal": 39,
+                "name": "log_level",
+                "type_info": "Text"
+            }
+        ],
+        "parameters": {
+            "Left": [
+                "Int8"
+            ]
+        },
+        "nullable": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+        ]
     },
-    "nullable": [
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true
-    ]
-  },
-  "hash": "8433cecb95400cf075bf813a43c0678495a6851c98ebdce35e968f780cf898a0"
+    "hash": "8433cecb95400cf075bf813a43c0678495a6851c98ebdce35e968f780cf898a0"
 }
