@@ -6,6 +6,13 @@ The format is based on [Keep a
 Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-07-18
+
+### 🚀 Features
+
+- Add total_{e2ee_}messages to `aggregated_stats` and `aggregated_stats_by_context`
+  - Adds two columns to `aggregated_stats` and `aggregated_stats_by_context` and a query which recalculates it across all relevant reports every hour
+
 ## [0.3.4] - 2025-05-09
 
 ### Features
@@ -15,9 +22,9 @@ Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 
 ## [0.3.3] - 2024-12-17
 
--  feat(dockerfile): Make workdir read/writable by root group for k8s
--  feat: Add option to configure via ENV variables (FAMEDLY_BDR)
--  bump: Update dependencies
+- feat(dockerfile): Make workdir read/writable by root group for k8s
+- feat: Add option to configure via ENV variables (FAMEDLY_BDR)
+- bump: Update dependencies
 
 ## [0.3.2] - 2024-05-02
 
@@ -56,6 +63,7 @@ Initial release of Barad-dûr. Comes with support for stats recording,
 and aggregation.
 
 A focus on maintainability means that this initial release already comes with:
+
 - integration testing
 - database schema migrations
 - continuous integration
