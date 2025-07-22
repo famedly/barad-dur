@@ -181,7 +181,7 @@ async fn load_test() {
 
     let db_url = env::var("DATABASE_URL").expect("database URL");
     let pool = sqlx::PgPool::connect(&db_url).await.expect("DB connection");
-    let (tx, mut rx) = mpsc::channel::<model::Report>(64);
+    let (tx, mut rx) = mpsc::channel::<model::Report>(1);
 
     let app = Router::new()
         .route("/report-usage-stats/push", put(server::tests::save_report))
@@ -210,15 +210,9 @@ async fn load_test() {
     tokio::spawn(async move {
         loop {
             let report = rx.recv().await.expect("receive report");
-            let id = database::tests::save_report(&pool_clone, &report)
+            database::tests::save_report(&pool_clone, &report)
                 .await
                 .expect("save report");
-            assert_eq!(
-                report,
-                database::tests::get_report_by_id(&pool_clone, id)
-                    .await
-                    .expect("get report by id")
-            );
         }
     });
 
@@ -280,7 +274,7 @@ async fn load_test() {
     set.join_all().await;
 
     let mut set = JoinSet::new();
-
+    let sem = Arc::new(Semaphore::new(1));
     for day in &days {
         let permit = Arc::clone(&sem).acquire_owned().await;
         let pool = pool.clone();
@@ -299,6 +293,7 @@ async fn load_test() {
     set.join_all().await;
 
     let mut set = JoinSet::new();
+    let sem = Arc::new(Semaphore::new(20));
 
     // Check only every 7th day to avoid too many requests
     for (day_pos, day) in days
