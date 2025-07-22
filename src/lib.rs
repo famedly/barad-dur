@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use clap::ArgMatches;
 pub use model::{AggregatedStats, AggregatedStatsByContext};
+use rust_telemetry::init_otel;
 use settings::Settings;
 use std::sync::Arc;
 
@@ -14,6 +15,7 @@ mod tests;
 pub async fn run(opts: ArgMatches) -> Result<()> {
     let settings = Settings::load(opts.get_one::<String>("config").expect("Config string"))
         .context("can't load config.")?;
+    let _guard = init_otel!(&settings.telemetry.unwrap_or_default()).unwrap();
 
     let (tx, rx) = tokio::sync::mpsc::channel::<model::Report>(64);
 

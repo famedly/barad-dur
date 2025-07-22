@@ -1,22 +1,24 @@
 #![allow(clippy::unwrap_used)]
 
+use crate::AggregatedStats;
 use crate::database;
 use crate::model;
 use crate::model::AggregatedStatsByContext;
 use crate::server;
 use crate::settings::DBSettings;
-use crate::AggregatedStats;
 
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::{collections::HashMap, env};
 
-use axum::routing::{get, put};
 use axum::Extension;
 use axum::Router;
+use axum::body::Body;
+use axum::body::to_bytes;
+use axum::extract::connect_info::MockConnectInfo;
+use axum::routing::{get, put};
 use http::Request;
 use http::StatusCode;
-use http_body::Body as HttpBody;
-use hyper::Body;
 use serde_json::json;
 use time::Duration;
 use tokio::sync::mpsc;
@@ -36,17 +38,18 @@ async fn integration_testing() {
     let app = Router::new()
         .route("/report-usage-stats/push", put(server::tests::save_report))
         .route(
-            "/aggregated-stats/:day",
+            "/aggregated-stats/{day}",
             get(server::tests::get_aggregated_stats),
         )
         .route(
-            "/aggregated-stats/:day/:context",
+            "/aggregated-stats/{day}/{context}",
             get(server::tests::get_aggregated_stats_by_context),
         )
         .with_state(Arc::new(DBSettings {
             url: db_url.clone(),
         }))
-        .layer(Extension(tx.clone()));
+        .layer(Extension(tx.clone()))
+        .layer(MockConnectInfo(SocketAddr::from(([0, 0, 0, 0], 1337))));
 
     let mut test_payloads = HashMap::new();
     test_payloads.insert("v0.33.6", include_str!("./report-v0.33.6.json"));
@@ -153,13 +156,9 @@ async fn integration_testing() {
     );
 
     let body: AggregatedStatsByContext = serde_json::from_slice(
-        aggregated_context_res
-            .into_body()
-            .collect()
+        &to_bytes(aggregated_context_res.into_body(), usize::MAX)
             .await
-            .expect("collect body")
-            .to_bytes()
-            .as_ref(),
+            .expect("body"),
     )
     .expect("Converting response body to json");
     assert_eq!(body.server_context, "test_context");
@@ -186,17 +185,18 @@ async fn load_test() {
     let app = Router::new()
         .route("/report-usage-stats/push", put(server::tests::save_report))
         .route(
-            "/aggregated-stats/:day",
+            "/aggregated-stats/{day}",
             get(server::tests::get_aggregated_stats),
         )
         .route(
-            "/aggregated-stats/:day/:context",
+            "/aggregated-stats/{day}/{context}",
             get(server::tests::get_aggregated_stats_by_context),
         )
         .with_state(Arc::new(DBSettings {
             url: db_url.clone(),
         }))
-        .layer(Extension(tx.clone()));
+        .layer(Extension(tx.clone()))
+        .layer(MockConnectInfo(SocketAddr::from(([0, 0, 0, 0], 1337))));
 
     let mut days = Vec::new();
     for day in (0..DAYS).rev() {
@@ -261,11 +261,7 @@ async fn load_test() {
                     resp.status(),
                     StatusCode::OK,
                     "report-usage-stats request, got body {:?}",
-                    resp.into_body()
-                        .collect()
-                        .await
-                        .expect("collect body")
-                        .to_bytes(),
+                    &to_bytes(resp.into_body(), usize::MAX).await.expect("body"),
                 );
             });
         }
@@ -321,13 +317,9 @@ async fn load_test() {
                 .unwrap();
 
             let body: AggregatedStats = serde_json::from_slice(
-                aggregated_res
-                    .into_body()
-                    .collect()
+                &to_bytes(aggregated_res.into_body(), usize::MAX)
                     .await
-                    .expect("collect body")
-                    .to_bytes()
-                    .as_ref(),
+                    .expect("body"),
             )
             .expect("Converting response body to json");
 
@@ -377,13 +369,9 @@ async fn load_test() {
                     .unwrap();
 
                 let body: AggregatedStatsByContext = serde_json::from_slice(
-                    aggregated_context_res
-                        .into_body()
-                        .collect()
+                    &to_bytes(aggregated_context_res.into_body(), usize::MAX)
                         .await
-                        .expect("collect body")
-                        .to_bytes()
-                        .as_ref(),
+                        .expect("body"),
                 )
                 .expect("Converting response body to json");
                 assert_eq!(

@@ -3,6 +3,7 @@ use std::process;
 use anyhow::{Context, Result};
 use sqlx::PgPool;
 use tokio::{sync::mpsc::Receiver, time::interval};
+use tracing::instrument;
 
 use crate::model::{AggregatedStats, AggregatedStatsByContext, Report};
 use crate::settings::DBSettings;
@@ -14,11 +15,11 @@ pub async fn aggregate_loop(settings: &DBSettings) {
     loop {
         let today = time::OffsetDateTime::now_utc().date();
         if let Err(err) = aggregate_stats(&pool, today).await {
-            log::error!("{:?}", err);
+            log::error!("{err:?}");
             process::exit(-1);
         }
         if let Err(err) = aggregate_stats_by_context(&pool, today).await {
-            log::error!("{:?}", err);
+            log::error!("{err:?}");
             process::exit(-1);
         }
         interval.tick().await;
@@ -36,7 +37,7 @@ pub async fn insert_reports_loop(settings: &DBSettings, mut rx: Receiver<Report>
         {
             Ok(report) => report,
             Err(err) => {
-                log::error!("{:?}", err);
+                log::error!("{err:?}");
                 process::exit(-1);
             }
         };
@@ -45,7 +46,7 @@ pub async fn insert_reports_loop(settings: &DBSettings, mut rx: Receiver<Report>
             .await
             .context("failed writing report to database.")
         {
-            log::error!("{:?}", err);
+            log::error!("{err:?}");
             process::exit(-1);
         }
     }
@@ -61,7 +62,7 @@ async fn connect_pg(url: &str) -> PgPool {
     let pool = match connect_pg_gracefully(url).await {
         Ok(pool) => pool,
         Err(err) => {
-            log::error!("{:?}", err);
+            log::error!("{err:?}");
             process::exit(-1);
         }
     };
@@ -71,7 +72,7 @@ async fn connect_pg(url: &str) -> PgPool {
         .await
         .context("failed to run migrations")
     {
-        log::error!("{:?}", err);
+        log::error!("{err:?}");
         process::exit(-1);
     }
 
@@ -79,17 +80,17 @@ async fn connect_pg(url: &str) -> PgPool {
 }
 
 pub async fn get_db_pool(DBSettings { url }: &DBSettings) -> PgPool {
-    use once_cell::sync::OnceCell;
-    static PG_POOL_CELL: OnceCell<PgPool> = OnceCell::new();
+    use tokio::sync::OnceCell;
+    static PG_POOL_CELL: OnceCell<PgPool> = OnceCell::const_new();
 
-    PG_POOL_CELL.get().cloned().unwrap_or({
-        let pool = connect_pg(url).await;
-        let _ = PG_POOL_CELL.set(pool.clone());
-        pool
-    })
+    PG_POOL_CELL
+        .get_or_init(|| async { connect_pg(url).await })
+        .await
+        .clone()
 }
 
 #[allow(clippy::too_many_lines)]
+#[instrument]
 async fn aggregate_stats(pool: &PgPool, day: sqlx::types::time::Date) -> Result<()> {
     let _ = sqlx::query!(
         r#"
@@ -229,6 +230,7 @@ async fn aggregate_stats(pool: &PgPool, day: sqlx::types::time::Date) -> Result<
 }
 
 #[allow(clippy::too_many_lines)]
+#[instrument]
 async fn aggregate_stats_by_context(pool: &PgPool, day: sqlx::types::time::Date) -> Result<()> {
     let _ = sqlx::query!(
         r#"

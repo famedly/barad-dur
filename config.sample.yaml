@@ -3,3 +3,16 @@ database:
 
 server:
   host: 127.0.0.1:8080
+
+# Tracing and logging settings. See ./config-schema.yaml for more options
+telemetry:
+  # stdout logging configuration. Enabled by default
+  stdout:
+    # Enables exporting
+    enabled: true
+    # Set the general filtering level
+    level: info
+    # Sets filter directives
+    general_level: info
+    # Structured JSON logs
+    json_output: false

@@ -3,12 +3,15 @@ use std::process;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use axum::extract::{Path, State};
-use axum::headers::{Header, HeaderName, UserAgent};
-use axum::{extract, response::IntoResponse, Extension, Json, Router, Server, TypedHeader};
+use axum::extract::{ConnectInfo, Path, State};
+use axum::{Extension, Json, Router, response::IntoResponse};
 use axum::{routing::get, routing::put};
-use http::{HeaderValue, StatusCode};
+use axum_extra::TypedHeader;
+use axum_extra::headers::{Header, UserAgent};
+use axum_tracing_opentelemetry::middleware::{OtelAxumLayer, OtelInResponseLayer};
+use http::{HeaderName, HeaderValue, StatusCode};
 use tokio::sync::mpsc;
+use tracing::instrument;
 
 use crate::model;
 use crate::settings::{DBSettings, ServerSettings};
@@ -18,21 +21,22 @@ pub async fn run_server(
     db_settings: Arc<DBSettings>,
     tx: mpsc::Sender<model::Report>,
 ) -> Result<()> {
-    Server::bind(&settings.host.parse::<SocketAddr>()?)
-        .serve(
-            Router::new()
-                .route("/health", get(health_check))
-                .route("/report-usage-stats/push", put(save_report))
-                .route("/aggregated-stats/:day", get(get_aggregated_stats))
-                .route(
-                    "/aggregated-stats/:day/:context",
-                    get(get_aggregated_stats_by_context),
-                )
-                .with_state(db_settings)
-                .layer(Extension(tx))
-                .into_make_service_with_connect_info::<SocketAddr>(),
+    let app = Router::new()
+        .route("/health", get(health_check))
+        .route("/report-usage-stats/push", put(save_report))
+        .route("/aggregated-stats/{day}", get(get_aggregated_stats))
+        .route(
+            "/aggregated-stats/{day}/{context}",
+            get(get_aggregated_stats_by_context),
         )
-        .await?;
+        .with_state(db_settings)
+        .layer(Extension(tx))
+        .layer(OtelInResponseLayer)
+        .layer(OtelAxumLayer::default())
+        .into_make_service_with_connect_info::<SocketAddr>();
+
+    let listener = tokio::net::TcpListener::bind(&settings.host.parse::<SocketAddr>()?).await?;
+    axum::serve(listener, app).await?;
 
     Ok(())
 }
@@ -48,6 +52,7 @@ async fn health_check(State(db_settings): State<Arc<DBSettings>>) -> impl IntoRe
 }
 
 /// X-Forwarded-For header
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct XForwardedFor(IpAddr);
 
 impl Header for XForwardedFor {
@@ -57,18 +62,20 @@ impl Header for XForwardedFor {
         &NAME
     }
 
-    fn decode<'i, I>(values: &mut I) -> Result<Self, axum::headers::Error>
+    fn decode<'i, I>(values: &mut I) -> Result<Self, axum_extra::headers::Error>
     where
         Self: Sized,
         I: Iterator<Item = &'i HeaderValue>,
     {
-        let value = values.next().ok_or_else(axum::headers::Error::invalid)?;
+        let value = values
+            .next()
+            .ok_or_else(axum_extra::headers::Error::invalid)?;
         Ok(Self(
             value
                 .to_str()
-                .map_err(|_| axum::headers::Error::invalid())?
+                .map_err(|_| axum_extra::headers::Error::invalid())?
                 .parse()
-                .map_err(|_| axum::headers::Error::invalid())?,
+                .map_err(|_| axum_extra::headers::Error::invalid())?,
         ))
     }
 
@@ -80,6 +87,7 @@ impl Header for XForwardedFor {
     }
 }
 
+#[instrument]
 async fn get_aggregated_stats(
     State(db_settings): State<Arc<DBSettings>>,
     Path(day): Path<sqlx::types::time::Date>,
@@ -88,13 +96,14 @@ async fn get_aggregated_stats(
         crate::database::get_aggregated_stats(&db_settings, day)
             .await
             .map_err(|err| {
-                log::error!("{:?}", err);
+                log::error!("{err:?}");
                 StatusCode::INTERNAL_SERVER_ERROR
             })?
             .ok_or(StatusCode::NOT_FOUND)?,
     ))
 }
 
+#[instrument]
 async fn get_aggregated_stats_by_context(
     State(db_settings): State<Arc<DBSettings>>,
     Path((day, context)): Path<(sqlx::types::time::Date, String)>,
@@ -103,16 +112,17 @@ async fn get_aggregated_stats_by_context(
         crate::database::get_aggregated_stats_by_context(&db_settings, day, context)
             .await
             .map_err(|err| {
-                log::error!("{:?}", err);
+                log::error!("{err:?}");
                 StatusCode::INTERNAL_SERVER_ERROR
             })?
             .ok_or(StatusCode::NOT_FOUND)?,
     ))
 }
 
+#[instrument]
 async fn save_report(
     tx: Extension<mpsc::Sender<model::Report>>,
-    addr: Option<extract::ConnectInfo<SocketAddr>>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     forwarded_addr: Option<TypedHeader<XForwardedFor>>,
     user_agent: Option<TypedHeader<UserAgent>>,
     report: Json<model::Report>,
@@ -129,7 +139,7 @@ async fn save_report(
                 .expect("replace millisecond")
         });
     }
-    report.remote_addr = addr.map(|addr| addr.0.to_string());
+    report.remote_addr = Some(addr.to_string());
     report.forwarded_for =
         forwarded_addr.map(|TypedHeader(forwarded_addr)| forwarded_addr.0.to_string());
     report.user_agent = user_agent.map(|TypedHeader(user_agent)| user_agent.to_string());
@@ -139,7 +149,7 @@ async fn save_report(
         .await
         .context("can't send report to sql thread.")
     {
-        log::error!("{:?}", err);
+        log::error!("{err:?}");
         process::exit(-1);
     }
     StatusCode::OK
@@ -151,7 +161,9 @@ pub mod tests {
     use std::sync::Arc;
 
     use axum::extract::{Path, State};
-    use axum::{extract, headers::UserAgent, response::IntoResponse, Json, TypedHeader};
+    use axum::{Json, extract, response::IntoResponse};
+    use axum_extra::TypedHeader;
+    use axum_extra::headers::UserAgent;
     use http::StatusCode;
     use tokio::sync::mpsc;
 
@@ -162,7 +174,7 @@ pub mod tests {
 
     pub async fn save_report(
         tx: extract::Extension<mpsc::Sender<model::Report>>,
-        addr: Option<extract::ConnectInfo<SocketAddr>>,
+        addr: extract::ConnectInfo<SocketAddr>,
         forwarded_addr: Option<TypedHeader<XForwardedFor>>,
         user_agent: Option<TypedHeader<UserAgent>>,
         report: Json<model::Report>,
