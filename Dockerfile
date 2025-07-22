@@ -12,14 +12,14 @@ COPY . /app
 WORKDIR /app
 RUN source $HOME/.cargo/env && cargo auditable build --release
 
-FROM docker.io/alpine:3.14
+FROM docker.io/alpine:3.14 AS barad-dur
 RUN apk add --no-cache \
 	libgcc \
 	tzdata \
-#IMPORTANT: in order for the Docker container to be able to perform the check, the image must provide `curl`.
-#           If changing or updating the base image's version, please ensure that `curl` is available!
+	#IMPORTANT: in order for the Docker container to be able to perform the check, the image must provide `curl`.
+	#           If changing or updating the base image's version, please ensure that `curl` is available!
 	curl && \
-# ensure the UTC timezone is set
+	# ensure the UTC timezone is set
 	ln -fs /usr/share/zoneinfo/Etc/UTC /etc/localtime
 
 WORKDIR /opt/barad-dur
@@ -33,5 +33,4 @@ ARG service_port_number=8080
 EXPOSE ${service_port_number}/tcp
 ENV SERVICE_PORT=${service_port_number}
 HEALTHCHECK --interval=3s --timeout=3s --retries=2 --start-period=5s \
- CMD curl -fSs http://localhost:$SERVICE_PORT/health || exit 1
- 
+	CMD curl -fSs http://localhost:$SERVICE_PORT/health || exit 1
