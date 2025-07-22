@@ -9,16 +9,14 @@ use crate::model::{AggregatedStats, AggregatedStatsByContext, Report};
 use crate::settings::DBSettings;
 
 pub async fn aggregate_loop(settings: &DBSettings) {
-    let pool = get_db_pool(settings).await;
-
     let interval = &mut interval(std::time::Duration::new(3600, 0));
     loop {
         let today = time::OffsetDateTime::now_utc().date();
-        if let Err(err) = aggregate_stats(&pool, today).await {
+        if let Err(err) = aggregate_stats(settings, today).await {
             log::error!("{err:?}");
             process::exit(-1);
         }
-        if let Err(err) = aggregate_stats_by_context(&pool, today).await {
+        if let Err(err) = aggregate_stats_by_context(settings, today).await {
             log::error!("{err:?}");
             process::exit(-1);
         }
@@ -91,7 +89,9 @@ pub async fn get_db_pool(DBSettings { url }: &DBSettings) -> PgPool {
 
 #[allow(clippy::too_many_lines)]
 #[instrument]
-async fn aggregate_stats(pool: &PgPool, day: sqlx::types::time::Date) -> Result<()> {
+pub async fn aggregate_stats(db_settings: &DBSettings, day: sqlx::types::time::Date) -> Result<()> {
+    let pool = get_db_pool(db_settings).await;
+
     let _ = sqlx::query!(
         r#"
         INSERT INTO
@@ -194,7 +194,7 @@ async fn aggregate_stats(pool: &PgPool, day: sqlx::types::time::Date) -> Result<
           daily_active_homeservers = excluded.daily_active_homeservers;"#,
         day
     )
-    .execute(pool)
+    .execute(&pool)
     .await
     .context("could not aggregate stats")?;
 
@@ -222,7 +222,7 @@ async fn aggregate_stats(pool: &PgPool, day: sqlx::types::time::Date) -> Result<
 "#,
         day
     )
-    .execute(pool)
+    .execute(&pool)
     .await
     .context("could not add total_messages and total_e2ee_messages to aggregated_stats")?;
 
@@ -231,7 +231,12 @@ async fn aggregate_stats(pool: &PgPool, day: sqlx::types::time::Date) -> Result<
 
 #[allow(clippy::too_many_lines)]
 #[instrument]
-async fn aggregate_stats_by_context(pool: &PgPool, day: sqlx::types::time::Date) -> Result<()> {
+pub async fn aggregate_stats_by_context(
+    db_settings: &DBSettings,
+    day: sqlx::types::time::Date,
+) -> Result<()> {
+    let pool = get_db_pool(db_settings).await;
+
     let _ = sqlx::query!(
         r#"
         INSERT INTO
@@ -339,7 +344,7 @@ async fn aggregate_stats_by_context(pool: &PgPool, day: sqlx::types::time::Date)
           daily_active_homeservers = excluded.daily_active_homeservers;"#,
         day
     )
-    .execute(pool)
+    .execute(&pool)
     .await
     .context("could not aggregate stats")?;
 
@@ -370,7 +375,7 @@ async fn aggregate_stats_by_context(pool: &PgPool, day: sqlx::types::time::Date)
 "#,
         day
     )
-    .execute(pool)
+    .execute(&pool)
     .await
     .context(
         "could not add total_messages and total_e2ee_messages to aggregated_stats_by_context",
@@ -557,17 +562,6 @@ async fn save_report(pool: &PgPool, report: &Report) -> Result<i64> {
 pub mod tests {
     use crate::model::Report;
     use anyhow::Result;
-
-    pub async fn aggregate_stats(pool: &sqlx::PgPool, day: sqlx::types::time::Date) -> Result<()> {
-        super::aggregate_stats(pool, day).await
-    }
-
-    pub async fn aggregate_stats_by_context(
-        pool: &sqlx::PgPool,
-        day: sqlx::types::time::Date,
-    ) -> Result<()> {
-        super::aggregate_stats_by_context(pool, day).await
-    }
 
     pub async fn save_report(pool: &sqlx::PgPool, report: &Report) -> Result<i64> {
         super::save_report(pool, report).await

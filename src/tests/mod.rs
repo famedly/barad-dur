@@ -30,9 +30,12 @@ use tower::ServiceExt; // for `app.oneshot()`
 #[tokio::test]
 #[allow(clippy::too_many_lines)]
 async fn integration_testing() {
-    // crate::setup_logging("debug");
-    let db_url = env::var("DATABASE_URL").expect("database URL");
-    let pool = sqlx::PgPool::connect(&db_url).await.expect("DB connection");
+    let db_settings = DBSettings {
+        url: env::var("DATABASE_URL").expect("database URL"),
+    };
+    let pool = sqlx::PgPool::connect(&db_settings.url)
+        .await
+        .expect("DB connection");
     let (tx, mut rx) = mpsc::channel::<model::Report>(64);
 
     let app = Router::new()
@@ -45,9 +48,7 @@ async fn integration_testing() {
             "/aggregated-stats/{day}/{context}",
             get(server::tests::get_aggregated_stats_by_context),
         )
-        .with_state(Arc::new(DBSettings {
-            url: db_url.clone(),
-        }))
+        .with_state(Arc::new(db_settings.clone()))
         .layer(Extension(tx.clone()))
         .layer(MockConnectInfo(SocketAddr::from(([0, 0, 0, 0], 1337))));
 
@@ -96,10 +97,10 @@ async fn integration_testing() {
         );
     }
     let today = time::OffsetDateTime::now_utc().date();
-    database::tests::aggregate_stats(&pool, today)
+    database::aggregate_stats(&db_settings, today)
         .await
         .expect("aggregate stats");
-    database::tests::aggregate_stats_by_context(&pool, today)
+    database::aggregate_stats_by_context(&db_settings, today)
         .await
         .expect("aggregate stats by context");
 
@@ -178,8 +179,12 @@ async fn load_test() {
     const DAILY_MESSAGES: i64 = 5;
     const DAILY_E2EE_MESSAGES: i64 = 10;
 
-    let db_url = env::var("DATABASE_URL").expect("database URL");
-    let pool = sqlx::PgPool::connect(&db_url).await.expect("DB connection");
+    let db_settings = DBSettings {
+        url: env::var("DATABASE_URL").expect("database URL"),
+    };
+    let pool = sqlx::PgPool::connect(&db_settings.url)
+        .await
+        .expect("DB connection");
     let (tx, mut rx) = mpsc::channel::<model::Report>(1);
 
     let app = Router::new()
@@ -192,9 +197,7 @@ async fn load_test() {
             "/aggregated-stats/{day}/{context}",
             get(server::tests::get_aggregated_stats_by_context),
         )
-        .with_state(Arc::new(DBSettings {
-            url: db_url.clone(),
-        }))
+        .with_state(Arc::new(db_settings.clone()))
         .layer(Extension(tx.clone()))
         .layer(MockConnectInfo(SocketAddr::from(([0, 0, 0, 0], 1337))));
 
@@ -273,15 +276,15 @@ async fn load_test() {
     let sem = Arc::new(Semaphore::new(1));
     for day in &days {
         let permit = Arc::clone(&sem).acquire_owned().await;
-        let pool = pool.clone();
+        let db_settings = db_settings.clone();
         let day = *day;
         set.spawn(async move {
             let _permit = permit;
             //println!("Aggregating stats for day: {}", day.date());
-            database::tests::aggregate_stats(&pool, day.date())
+            database::aggregate_stats(&db_settings, day.date())
                 .await
                 .expect("aggregate stats");
-            database::tests::aggregate_stats_by_context(&pool, day.date())
+            database::aggregate_stats_by_context(&db_settings, day.date())
                 .await
                 .expect("aggregate stats by context");
         });
@@ -393,6 +396,152 @@ async fn load_test() {
     }
 
     set.join_all().await;
+}
+
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn get_aggregate_state_with_generate_test() {
+    const HOMESERVERS: i64 = 3;
+    const DAYS: i64 = 3;
+    const DAILY_ACTIVE_USERS: i64 = 55;
+    const MONTHLY_ACTIVE_USERS: i64 = 102;
+
+    let db_settings = DBSettings {
+        url: env::var("DATABASE_URL").expect("database URL"),
+    };
+    let pool = sqlx::PgPool::connect(&db_settings.url)
+        .await
+        .expect("DB connection");
+    let (tx, mut rx) = mpsc::channel::<model::Report>(1);
+
+    let app = Router::new()
+        .route("/report-usage-stats/push", put(server::tests::save_report))
+        .route(
+            "/aggregated-stats/{day}",
+            get(server::tests::get_aggregated_stats),
+        )
+        .route(
+            "/aggregated-stats/{day}/{context}",
+            get(server::tests::get_aggregated_stats_by_context),
+        )
+        .with_state(Arc::new(db_settings.clone()))
+        .layer(Extension(tx.clone()))
+        .layer(MockConnectInfo(SocketAddr::from(([0, 0, 0, 0], 1337))));
+
+    let mut days = Vec::new();
+    for day in (0..DAYS).rev() {
+        let mut now = time::OffsetDateTime::UNIX_EPOCH
+            .checked_add(Duration::days(2 * DAYS))
+            .expect("add days");
+        now = now.replace_time(time::Time::MIDNIGHT);
+        now = now.checked_sub(Duration::days(day)).expect("sub days");
+        days.push(now);
+    }
+
+    let pool_clone = pool.clone();
+    tokio::spawn(async move {
+        loop {
+            let report = rx.recv().await.expect("receive report");
+            database::tests::save_report(&pool_clone, &report)
+                .await
+                .expect("save report");
+        }
+    });
+
+    for homeserver in 0..HOMESERVERS {
+        for day in &days {
+            let app_clone = app.clone();
+
+            let payload = json!(
+                {
+                    "version": "custom",
+                    "server_context": "generate_test_".to_owned() + &homeserver.to_string(),
+                    "homeserver": "generate_test_".to_owned() + &homeserver.to_string(),
+                    "daily_active_users": DAILY_ACTIVE_USERS,
+                    "monthly_active_users": MONTHLY_ACTIVE_USERS,
+                    "local_timestamp": day.unix_timestamp(),
+                }
+            );
+
+            app_clone
+                .oneshot(
+                    Request::builder()
+                        .method(http::Method::PUT)
+                        .uri("/report-usage-stats/push")
+                        .header(http::header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(payload.to_string()))
+                        .expect("building request"),
+                )
+                .await
+                .unwrap();
+        }
+    }
+
+    for day in days.iter() {
+        let app_clone = app.clone();
+
+        let uri = format!("/aggregated-stats/{}?generate=true", day.date());
+        let aggregated_res = app_clone
+            .oneshot(
+                Request::builder()
+                    .method(http::Method::GET)
+                    .uri(&uri)
+                    .body(Body::empty())
+                    .expect("build request"),
+            )
+            .await
+            .unwrap();
+
+        let body: AggregatedStats = serde_json::from_slice(
+            &to_bytes(aggregated_res.into_body(), usize::MAX)
+                .await
+                .expect("body"),
+        )
+        .expect("Converting response body to json");
+
+        assert_eq!(
+            body.daily_active_users.unwrap(),
+            DAILY_ACTIVE_USERS * HOMESERVERS
+        );
+        assert_eq!(
+            body.monthly_active_users.unwrap(),
+            (MONTHLY_ACTIVE_USERS) * HOMESERVERS
+        );
+
+        for homeserver in 0..HOMESERVERS.min(2) {
+            let app_clone = app.clone();
+            let day_clone = *day;
+
+            let uri = format!(
+                "/aggregated-stats/{}/generate_test_{homeserver}?generate=true",
+                day_clone.date()
+            );
+            let aggregated_context_res = app_clone
+                .oneshot(
+                    Request::builder()
+                        .method(http::Method::GET)
+                        .uri(&uri)
+                        .body(Body::empty())
+                        .expect("build request"),
+                )
+                .await
+                .unwrap();
+
+            let body: AggregatedStatsByContext = serde_json::from_slice(
+                &to_bytes(aggregated_context_res.into_body(), usize::MAX)
+                    .await
+                    .expect("body"),
+            )
+            .expect("Converting response body to json");
+            assert_eq!(
+                body.server_context,
+                "generate_test_".to_owned() + &homeserver.to_string()
+            );
+
+            assert_eq!(body.daily_active_users.unwrap(), DAILY_ACTIVE_USERS);
+            assert_eq!(body.monthly_active_users.unwrap(), MONTHLY_ACTIVE_USERS);
+        }
+    }
 }
 
 #[tokio::test]

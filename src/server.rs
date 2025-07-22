@@ -3,13 +3,14 @@ use std::process;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use axum::extract::{ConnectInfo, Path, State};
+use axum::extract::{ConnectInfo, Path, Query, State};
 use axum::{Extension, Json, Router, response::IntoResponse};
 use axum::{routing::get, routing::put};
 use axum_extra::TypedHeader;
 use axum_extra::headers::{Header, UserAgent};
 use axum_tracing_opentelemetry::middleware::{OtelAxumLayer, OtelInResponseLayer};
 use http::{HeaderName, HeaderValue, StatusCode};
+use serde::Deserialize;
 use tokio::sync::mpsc;
 use tracing::instrument;
 
@@ -87,11 +88,24 @@ impl Header for XForwardedFor {
     }
 }
 
+#[derive(Deserialize, Debug, Clone, Default)]
+pub struct QueryParams {
+    generate: Option<bool>,
+}
+
 #[instrument]
 async fn get_aggregated_stats(
     State(db_settings): State<Arc<DBSettings>>,
     Path(day): Path<sqlx::types::time::Date>,
+    Query(params): Query<QueryParams>,
 ) -> Result<Json<model::AggregatedStats>, StatusCode> {
+    if let Some(true) = params.generate {
+        if let Err(err) = crate::database::aggregate_stats(&db_settings, day).await {
+            log::error!("{err:?}");
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    }
+
     Ok(Json(
         crate::database::get_aggregated_stats(&db_settings, day)
             .await
@@ -107,7 +121,15 @@ async fn get_aggregated_stats(
 async fn get_aggregated_stats_by_context(
     State(db_settings): State<Arc<DBSettings>>,
     Path((day, context)): Path<(sqlx::types::time::Date, String)>,
+    Query(params): Query<QueryParams>,
 ) -> Result<Json<model::AggregatedStatsByContext>, StatusCode> {
+    if let Some(true) = params.generate {
+        if let Err(err) = crate::database::aggregate_stats_by_context(&db_settings, day).await {
+            log::error!("{err:?}");
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    }
+
     Ok(Json(
         crate::database::get_aggregated_stats_by_context(&db_settings, day, context)
             .await
@@ -168,6 +190,7 @@ pub mod tests {
     use tokio::sync::mpsc;
 
     use crate::model;
+    use crate::server::QueryParams;
     use crate::settings::DBSettings;
 
     use super::XForwardedFor;
@@ -189,14 +212,16 @@ pub mod tests {
     pub async fn get_aggregated_stats(
         db_settings: State<Arc<DBSettings>>,
         day: Path<sqlx::types::time::Date>,
+        params: extract::Query<QueryParams>,
     ) -> Result<Json<model::AggregatedStats>, StatusCode> {
-        super::get_aggregated_stats(db_settings, day).await
+        super::get_aggregated_stats(db_settings, day, params).await
     }
 
     pub async fn get_aggregated_stats_by_context(
         db_settings: State<Arc<DBSettings>>,
         extractors: Path<(sqlx::types::time::Date, String)>,
+        params: extract::Query<QueryParams>,
     ) -> Result<Json<model::AggregatedStatsByContext>, StatusCode> {
-        super::get_aggregated_stats_by_context(db_settings, extractors).await
+        super::get_aggregated_stats_by_context(db_settings, extractors, params).await
     }
 }
