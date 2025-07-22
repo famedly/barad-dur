@@ -7,8 +7,8 @@ on:
 
 jobs:
   build:
-    uses: famedly/backend-build-workflows/.github/workflows/docker-backend.yml@main
+    uses: famedly/backend-build-workflows/.github/workflows/docker-backend.yml@v3
     secrets: inherit
     with:
-      name: barad-dur
+      targets: barad-dur
       oss: true
