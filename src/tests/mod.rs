@@ -85,6 +85,19 @@ async fn integration_testing() {
             resp.body(),
         );
 
+        assert_eq!(
+            resp.headers().get("Content-Type"),
+            Some(&http::header::HeaderValue::from_static("application/json"))
+        );
+
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(
+                &to_bytes(resp.into_body(), usize::MAX).await.expect("body"),
+            )
+            .expect("Converting response body to json"),
+            json!({})
+        );
+
         let report = rx.recv().await.expect("receive report");
         let id = database::tests::save_report(&pool, &report)
             .await

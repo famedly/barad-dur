@@ -12,6 +12,7 @@ use axum_tracing_opentelemetry::middleware::{OtelAxumLayer, OtelInResponseLayer}
 use http::{HeaderName, HeaderValue, StatusCode};
 use log::info;
 use serde::Deserialize;
+use serde_json::json;
 use tokio::sync::mpsc;
 use tracing::instrument;
 
@@ -150,7 +151,7 @@ async fn save_report(
     forwarded_addr: Option<TypedHeader<XForwardedFor>>,
     user_agent: Option<TypedHeader<UserAgent>>,
     report: Json<model::Report>,
-) -> StatusCode {
+) -> (StatusCode, Json<serde_json::Value>) {
     let mut report = report;
 
     // for tests, make it possible to not always set the local timestamp
@@ -176,7 +177,7 @@ async fn save_report(
         log::error!("{err:?}");
         process::exit(-1);
     }
-    StatusCode::OK
+    (StatusCode::OK, Json(json!({})))
 }
 
 #[cfg(test)]
@@ -203,7 +204,7 @@ pub mod tests {
         forwarded_addr: Option<TypedHeader<XForwardedFor>>,
         user_agent: Option<TypedHeader<UserAgent>>,
         report: Json<model::Report>,
-    ) -> StatusCode {
+    ) -> (StatusCode, Json<serde_json::Value>) {
         super::save_report(tx, addr, forwarded_addr, user_agent, report).await
     }
 
