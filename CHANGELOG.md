@@ -6,6 +6,13 @@ The format is based on [Keep a
 Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2025-07-24
+
+### 🐛 Bug Fixes
+
+- Do not log DBSettings without redaction and add base logging statements
+- Synapse expects Json body as response for report request
+
 ## [0.5.0] - 2025-07-22
 
 ### 🚀 Features
