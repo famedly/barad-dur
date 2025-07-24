@@ -10,6 +10,7 @@ use axum_extra::TypedHeader;
 use axum_extra::headers::{Header, UserAgent};
 use axum_tracing_opentelemetry::middleware::{OtelAxumLayer, OtelInResponseLayer};
 use http::{HeaderName, HeaderValue, StatusCode};
+use log::info;
 use serde::Deserialize;
 use tokio::sync::mpsc;
 use tracing::instrument;
@@ -37,6 +38,7 @@ pub async fn run_server(
         .into_make_service_with_connect_info::<SocketAddr>();
 
     let listener = tokio::net::TcpListener::bind(&settings.host.parse::<SocketAddr>()?).await?;
+    info!("Starting server on {}", settings.host);
     axum::serve(listener, app).await?;
 
     Ok(())
@@ -141,7 +143,7 @@ async fn get_aggregated_stats_by_context(
     ))
 }
 
-#[instrument]
+#[instrument(skip(tx, report))]
 async fn save_report(
     tx: Extension<mpsc::Sender<model::Report>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,

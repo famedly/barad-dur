@@ -1,6 +1,7 @@
 use std::process;
 
 use anyhow::{Context, Result};
+use log::info;
 use sqlx::PgPool;
 use tokio::{sync::mpsc::Receiver, time::interval};
 use tracing::instrument;
@@ -88,7 +89,7 @@ pub async fn get_db_pool(DBSettings { url }: &DBSettings) -> PgPool {
 }
 
 #[allow(clippy::too_many_lines)]
-#[instrument]
+#[instrument(skip(db_settings))]
 pub async fn aggregate_stats(db_settings: &DBSettings, day: sqlx::types::time::Date) -> Result<()> {
     let pool = get_db_pool(db_settings).await;
 
@@ -226,11 +227,13 @@ pub async fn aggregate_stats(db_settings: &DBSettings, day: sqlx::types::time::D
     .await
     .context("could not add total_messages and total_e2ee_messages to aggregated_stats")?;
 
+    info!("Aggregated stats for {day} generated successfully");
+
     Ok(())
 }
 
 #[allow(clippy::too_many_lines)]
-#[instrument]
+#[instrument(skip(db_settings))]
 pub async fn aggregate_stats_by_context(
     db_settings: &DBSettings,
     day: sqlx::types::time::Date,
@@ -381,6 +384,8 @@ pub async fn aggregate_stats_by_context(
         "could not add total_messages and total_e2ee_messages to aggregated_stats_by_context",
     )?;
 
+    info!("Aggregated stats for {day} with contexts generated successfully");
+
     Ok(())
 }
 
@@ -415,6 +420,7 @@ pub async fn get_aggregated_stats_by_context(
 }
 
 #[allow(clippy::too_many_lines)]
+#[instrument(skip(pool, report))]
 async fn save_report(pool: &PgPool, report: &Report) -> Result<i64> {
     #[derive(sqlx::FromRow)]
     struct Id {
@@ -554,6 +560,11 @@ async fn save_report(pool: &PgPool, report: &Report) -> Result<i64> {
     .fetch_one(pool)
     .await
     .context("failed executing aggregation query.")?;
+
+    info!(
+        "Report for {:?} on {:?} saved successfully",
+        report.homeserver, report.local_timestamp
+    );
 
     Ok(id.id)
 }
