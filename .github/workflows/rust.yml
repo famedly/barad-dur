@@ -29,12 +29,12 @@ jobs:
           gitlab_ssh: ${{ secrets.CI_SSH_PRIVATE_KEY}}
 
       - name: Caching
-        uses: Swatinem/rust-cache@68b3cb7503c78e67dae8373749990a220eb65352
+        uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           shared-key: "stable"
 
       - name: Typos
-        uses: crate-ci/typos@ef5fcf92dfbd679f97c0371159e143852f7b1eb1
+        uses: crate-ci/typos@7b04f660f4ee4f048d18fd341887cf28dfbedfe2
 
       - name: Check
         shell: bash
@@ -73,7 +73,7 @@ jobs:
           gitlab_ssh: ${{ secrets.CI_SSH_PRIVATE_KEY}}
 
       - name: Caching
-        uses: Swatinem/rust-cache@68b3cb7503c78e67dae8373749990a220eb65352
+        uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           shared-key: "stable"
 
@@ -85,13 +85,13 @@ jobs:
           cargo llvm-cov nextest --profile ci --workspace --lcov --output-path lcov.info
 
       - name: Codecov - Upload coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@ca0a928a4cb3911011e868128a5cd90437c12db1
         with:
           token: ${{secrets.CODECOV_TOKEN}}
           files: "lcov.info"
 
       - name: Codecov - Upload test results
-        uses: codecov/test-results-action@v1
+        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3
         with:
           token: ${{secrets.CODECOV_TOKEN}}
 
@@ -108,7 +108,7 @@ jobs:
           gitlab_ssh: ${{ secrets.CI_SSH_PRIVATE_KEY}}
 
       - name: Caching
-        uses: Swatinem/rust-cache@68b3cb7503c78e67dae8373749990a220eb65352
+        uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           shared-key: "nightly"
 
@@ -132,7 +132,7 @@ jobs:
           gitlab_ssh: ${{ secrets.CI_SSH_PRIVATE_KEY}}
 
       - name: Caching
-        uses: Swatinem/rust-cache@68b3cb7503c78e67dae8373749990a220eb65352
+        uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           shared-key: "nightly"
 
